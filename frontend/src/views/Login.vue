@@ -72,7 +72,7 @@ async function submit() {
   padding: 64px 28px 28px;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #ffe3ec 0%, #f6f7fb 45%);
+  background: linear-gradient(180deg, var(--login-top) 0%, var(--login-bot) 45%);
 }
 .brand {
   text-align: center;
@@ -84,11 +84,11 @@ async function submit() {
 .brand h1 {
   margin: 12px 0 4px;
   font-size: 24px;
-  color: #ff5c8a;
+  color: var(--primary-deep);
 }
 .brand p {
   margin: 0;
-  color: #9aa0ad;
+  color: var(--text-3);
   font-size: 13px;
 }
 .form {
@@ -99,7 +99,7 @@ async function submit() {
 .switch {
   text-align: center;
   margin-top: 16px;
-  color: #ff7aa2;
+  color: var(--primary);
   font-size: 13px;
 }
 </style>

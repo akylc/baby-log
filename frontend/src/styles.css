@@ -11,9 +11,55 @@ body,
 }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
-  background: #e9ebf0;
-  color: #1f2330;
+  background: var(--login-bot);
+  color: var(--text);
 }
 #app {
   height: 100%;
+}
+
+/* ===== 主题变量（浅色为默认，html.dark 覆盖） ===== */
+:root {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --card-pink: #fff0f5;
+  --text: #2b2f38;
+  --text-1: #4a4f5c;
+  --text-2: #6b7180;
+  --text-3: #9aa0ad;
+  --text-4: #b5bac6;
+  --border: #e6e8ef;
+  --border-soft: #eceef3;
+  --tag-bg: #ffffff;
+  --tag-border: #ffe3ec;
+  --tag-text: #ff5c8a;
+  --primary: #ff7aa2;
+  --primary-deep: #ff5c8a;
+  --sheet-bg: #f7f8fa;
+  --mask: rgba(0, 0, 0, 0.45);
+  --avatar-bg: #ffe3ec;
+  --login-top: #ffe3ec;
+  --login-bot: #e9ebf0;
+}
+html.dark {
+  --bg: #15161a;
+  --card: #1f2127;
+  --card-pink: #2a1f26;
+  --text: #b6bac4;
+  --text-1: #9ca2ad;
+  --text-2: #8b919e;
+  --text-3: #6b7180;
+  --text-4: #565b66;
+  --border: #2c2f38;
+  --border-soft: #262932;
+  --tag-bg: #2a1f26;
+  --tag-border: #4a2a38;
+  --tag-text: #ff95b8;
+  --primary: #ff7aa2;
+  --primary-deep: #ff5c8a;
+  --sheet-bg: #1f2127;
+  --mask: rgba(0, 0, 0, 0.6);
+  --avatar-bg: #2a1f26;
+  --login-top: #2a1f26;
+  --login-bot: #0f1013;
 }

@@ -318,21 +318,21 @@ async function submit() {
 }
 .type-btn {
   flex: none;
-  border: 1px solid #e6e8ef;
-  background: #fff;
+  border: 1px solid var(--border);
+  background: var(--card);
   border-radius: 20px;
   padding: 8px 14px;
   font-size: 13px;
-  color: #4a4f5c;
+  color: var(--text-1);
   display: flex;
   align-items: center;
   gap: 4px;
   cursor: pointer;
 }
 .type-btn.active {
-  background: #ff7aa2;
+  background: var(--primary);
   color: #fff;
-  border-color: #ff7aa2;
+  border-color: var(--primary);
 }
 .ti {
   font-size: 15px;
@@ -349,10 +349,10 @@ async function submit() {
 }
 .field label {
   font-size: 13px;
-  color: #6b7180;
+  color: var(--text-2);
 }
 .req {
-  color: #ff5c8a;
+  color: var(--primary-deep);
   margin-left: 2px;
 }
 .hist {
@@ -364,14 +364,14 @@ async function submit() {
 }
 .hist-cap {
   font-size: 12px;
-  color: #9aa0ad;
+  color: var(--text-3);
 }
 .tag {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #ffe3ec;
-  background: #fff;
-  color: #ff5c8a;
+  border: 1px solid var(--tag-border);
+  background: var(--tag-bg);
+  color: var(--tag-text);
   border-radius: 14px;
   padding: 0 2px 0 10px;
   font-size: 12px;
@@ -391,17 +391,17 @@ async function submit() {
   justify-content: center;
   border: none;
   background: transparent;
-  color: #ff9cb8;
+  color: var(--tag-text);
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
   flex: none;
 }
 .tag-del:active {
-  color: #ff5c8a;
+  color: var(--primary-deep);
 }
 .tag:active {
-  background: #fff0f5;
+  background: var(--card-pink);
 }
 .seg {
   display: flex;
@@ -409,18 +409,18 @@ async function submit() {
 }
 .seg-btn {
   flex: 1;
-  border: 1px solid #e6e8ef;
-  background: #fff;
+  border: 1px solid var(--border);
+  background: var(--card);
   border-radius: 10px;
   padding: 10px;
   font-size: 13px;
-  color: #4a4f5c;
+  color: var(--text-1);
   cursor: pointer;
 }
 .seg-btn.active {
-  background: #fff0f5;
-  border-color: #ff7aa2;
-  color: #ff5c8a;
+  background: var(--card-pink);
+  border-color: var(--primary);
+  color: var(--primary-deep);
   font-weight: 600;
 }
 </style>

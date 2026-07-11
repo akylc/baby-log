@@ -31,6 +31,13 @@
       <n-button type="primary" block size="large" :loading="loading" @click="save">保存</n-button>
     </div>
 
+    <div class="card setting">
+      <div class="setting-row">
+        <span class="s-label">深色模式</span>
+        <n-switch :value="isDark" @update:value="toggleTheme" />
+      </div>
+    </div>
+
     <div class="account">
       <div class="acc-name">账号：{{ auth.user?.username || '—' }}</div>
       <n-button block @click="logout">退出登录</n-button>
@@ -44,6 +51,7 @@ import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useBabyStore } from '@/stores/baby'
 import { useAuthStore } from '@/stores/auth'
+import { isDark, toggleTheme } from '@/utils/theme'
 
 const router = useRouter()
 const message = useMessage()
@@ -119,7 +127,7 @@ function logout() {
   font-weight: 600;
 }
 .card {
-  background: #fff;
+  background: var(--card);
   border-radius: 16px;
   padding: 16px;
   display: flex;
@@ -134,7 +142,7 @@ function logout() {
 }
 .field label {
   font-size: 13px;
-  color: #6b7180;
+  color: var(--text-2);
 }
 .seg {
   display: flex;
@@ -142,18 +150,18 @@ function logout() {
 }
 .seg-btn {
   flex: 1;
-  border: 1px solid #e6e8ef;
-  background: #fff;
+  border: 1px solid var(--border);
+  background: var(--card);
   border-radius: 10px;
   padding: 10px;
   font-size: 13px;
-  color: #4a4f5c;
+  color: var(--text-1);
   cursor: pointer;
 }
 .seg-btn.active {
-  background: #fff0f5;
-  border-color: #ff7aa2;
-  color: #ff5c8a;
+  background: var(--card-pink);
+  border-color: var(--primary);
+  color: var(--primary-deep);
   font-weight: 600;
 }
 .account {
@@ -161,8 +169,22 @@ function logout() {
 }
 .acc-name {
   font-size: 13px;
-  color: #6b7180;
+  color: var(--text-2);
   margin-bottom: 8px;
   text-align: center;
+}
+.setting {
+  margin-top: 14px;
+  padding: 4px 16px;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+}
+.s-label {
+  font-size: 14px;
+  color: var(--text-1);
 }
 </style>

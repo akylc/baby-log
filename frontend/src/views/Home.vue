@@ -544,7 +544,7 @@ onMounted(refresh)
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #ffe3ec;
+  background: var(--avatar-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -553,6 +553,7 @@ onMounted(refresh)
 .name {
   font-size: 17px;
   font-weight: 600;
+  color: var(--text);
 }
 .date-bar {
   display: flex;
@@ -565,9 +566,9 @@ onMounted(refresh)
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: 1px solid #ffe3ec;
-  background: #fff;
-  color: #ff5c8a;
+  border: 1px solid var(--tag-border);
+  background: var(--card);
+  color: var(--primary-deep);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -585,11 +586,11 @@ onMounted(refresh)
 .date-bar .d {
   font-size: 17px;
   font-weight: 700;
-  color: #4a4f5c;
+  color: var(--text-1);
 }
 .date-bar .w {
   font-size: 12px;
-  color: #9aa0ad;
+  color: var(--text-3);
 }
 .stats {
   display: grid;
@@ -598,7 +599,7 @@ onMounted(refresh)
   margin-bottom: 20px;
 }
 .stat {
-  background: #fff;
+  background: var(--card);
   border-radius: 14px;
   padding: 12px 4px;
   text-align: center;
@@ -607,17 +608,17 @@ onMounted(refresh)
 .num {
   font-size: 17px;
   font-weight: 700;
-  color: #ff5c8a;
+  color: var(--primary-deep);
 }
 .num small {
   font-size: 10px;
   font-weight: 500;
-  color: #9aa0ad;
+  color: var(--text-3);
   margin-left: 1px;
 }
 .lbl {
   font-size: 11px;
-  color: #9aa0ad;
+  color: var(--text-3);
   margin-top: 4px;
 }
 .empty {
@@ -627,7 +628,7 @@ onMounted(refresh)
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 10px;
-  color: #4a4f5c;
+  color: var(--text-1);
 }
 .day-head {
   display: flex;
@@ -643,17 +644,17 @@ onMounted(refresh)
 .day-head .day-d {
   font-size: 13px;
   font-weight: 700;
-  color: #ff5c8a;
+  color: var(--primary-deep);
 }
 .day-head .day-sum {
   font-size: 11px;
-  color: #9aa0ad;
+  color: var(--text-3);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .no-data {
-  color: #9aa0ad;
+  color: var(--text-3);
   font-size: 13px;
   text-align: center;
   padding: 40px 0;
@@ -662,7 +663,7 @@ onMounted(refresh)
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #fff;
+  background: var(--card);
   border-radius: 12px;
   padding: 12px;
   margin-bottom: 8px;
@@ -671,13 +672,13 @@ onMounted(refresh)
   transition: background 0.15s;
 }
 .tl-item:active {
-  background: #fff0f5;
+  background: var(--card-pink);
 }
 .tl-icon {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: #fff0f5;
+  background: var(--card-pink);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -691,10 +692,11 @@ onMounted(refresh)
 .tl-title {
   font-size: 14px;
   font-weight: 500;
+  color: var(--text);
 }
 .tl-sub {
   font-size: 12px;
-  color: #9aa0ad;
+  color: var(--text-3);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -703,21 +705,21 @@ onMounted(refresh)
 .tl-gap {
   display: inline-block;
   font-size: 11px;
-  color: #ff7aa2;
-  background: #fff0f5;
+  color: var(--primary);
+  background: var(--card-pink);
   border-radius: 8px;
   padding: 1px 7px;
   margin-top: 4px;
 }
 .tl-time {
   font-size: 12px;
-  color: #b5bac6;
+  color: var(--text-4);
   flex: none;
 }
 .sheet-mask {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--mask);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -726,7 +728,7 @@ onMounted(refresh)
 .sheet {
   width: 100%;
   max-width: 480px;
-  background: #f7f8fa;
+  background: var(--sheet-bg);
   border-radius: 16px 16px 0 0;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
   animation: sheetUp 0.2s ease;
@@ -748,15 +750,15 @@ onMounted(refresh)
 .sheet-hd > span {
   font-size: 16px;
   font-weight: 600;
-  color: #4a4f5c;
+  color: var(--text-1);
 }
 .sheet-x {
   width: 28px;
   height: 28px;
   border-radius: 50%;
   border: none;
-  background: #eceef3;
-  color: #6b7180;
+  background: var(--border-soft);
+  color: var(--text-2);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -776,7 +778,7 @@ onMounted(refresh)
 }
 .ef label {
   font-size: 13px;
-  color: #6b7180;
+  color: var(--text-2);
 }
 .edit-actions {
   display: flex;
@@ -800,18 +802,18 @@ onMounted(refresh)
 }
 .seg-btn {
   flex: 1;
-  border: 1px solid #e6e8ef;
-  background: #fff;
+  border: 1px solid var(--border);
+  background: var(--card);
   border-radius: 10px;
   padding: 10px;
   font-size: 13px;
-  color: #4a4f5c;
+  color: var(--text-1);
   cursor: pointer;
 }
 .seg-btn.active {
-  background: #fff0f5;
-  border-color: #ff7aa2;
-  color: #ff5c8a;
+  background: var(--card-pink);
+  border-color: var(--primary);
+  color: var(--primary-deep);
   font-weight: 600;
 }
 </style>
