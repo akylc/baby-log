@@ -315,6 +315,11 @@ async function submit() {
   overflow-x: auto;
   padding-bottom: 12px;
   margin-bottom: 8px;
+  scrollbar-width: none; /* Firefox 隐藏滚动条 */
+  -ms-overflow-style: none; /* IE/旧 Edge 隐藏滚动条 */
+}
+.type-row::-webkit-scrollbar {
+  display: none; /* WebKit（含移动端）隐藏滚动条，保留横向滑动 */
 }
 .type-btn {
   flex: none;

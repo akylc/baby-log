@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="uiTheme" :theme-overrides="themeOverrides">
+  <n-config-provider :theme="uiTheme" :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <n-message-provider>
       <n-dialog-provider>
         <div class="app-shell">
@@ -26,7 +26,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { darkTheme } from 'naive-ui'
+import { darkTheme, zhCN, dateZhCN } from 'naive-ui'
 import { isDark } from '@/utils/theme'
 
 const route = useRoute()
