@@ -2,11 +2,6 @@ packages:
   - 'backend'
   - 'frontend'
 
-allowBuilds:
-  better-sqlite3: set this to true or false
-  esbuild: set this to true or false
-  vue-demi: set this to true or false
-
 # pnpm 11：原生构建 / 需要跑 install 脚本的包需在 workspace 配置中放行
 onlyBuiltDependencies:
   - better-sqlite3

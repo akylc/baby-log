@@ -17,4 +17,5 @@ export const config = {
   port: Number(process.env.PORT) || 3000,
   host: process.env.HOST || '0.0.0.0',
   dbPath: path.join(DATA_DIR, 'momentlog.db'),
+  jwtSecret: process.env.JWT_SECRET || 'momentlog-dev-secret-change-me',
 }
