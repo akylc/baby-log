@@ -3,7 +3,7 @@
     <n-drawer-content :title="record ? '编辑记录' : '添加记录'">
       <n-form label-placement="top">
         <n-form-item label="类型" required>
-          <n-select v-model:value="typeId" :options="typeOptions" placeholder="选择类型" />
+          <n-select v-model:value="typeId" :options="typeOptions" placeholder="选择类型" @update:value="onTypeChange" />
         </n-form-item>
 
         <n-form-item v-for="f in schemaFields" :key="f.name" :label="f.label">
@@ -100,12 +100,6 @@ const tagOptions = computed(() =>
   topicTags.value.map((t) => ({ label: t.name, value: t.id })),
 )
 
-watch(typeId, () => {
-  const init: Record<string, any> = {}
-  for (const f of schemaFields.value) init[f.name] = ''
-  fields.value = init
-})
-
 watch(
   () => props.show,
   async (v) => {
@@ -127,6 +121,18 @@ watch(
     }
   },
 )
+
+// 用户主动切换类型时，按新类型的 schema 重置字段（编辑回显不受影响）
+function onTypeChange(val: number) {
+  const t = store.types.find((x) => x.id === val)
+  const init: Record<string, any> = {}
+  try {
+    ;(JSON.parse(t?.schema || '{}').fields || []).forEach((f: any) => (init[f.name] = ''))
+  } catch {
+    /* schema 为空时保持空字段 */
+  }
+  fields.value = init
+}
 
 function onUpload(options: any) {
   const file = options.file.file
