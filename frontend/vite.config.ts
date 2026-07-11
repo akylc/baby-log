@@ -17,8 +17,9 @@ export default defineConfig({
     },
   },
   build: {
-    // 前端构建产物直接输出到后端 public/，由后端单端口托管
-    outDir: fileURLToPath(new URL('../backend/public', import.meta.url)),
+    // 前端构建产物输出到自身 dist/，再由后端 tsup 的 onSuccess 复制到 backend/dist/public，
+    // 使后端打包产物（backend/dist）完全自包含、可直接部署运行。
+    outDir: fileURLToPath(new URL('./dist', import.meta.url)),
     emptyOutDir: true,
   },
 })
