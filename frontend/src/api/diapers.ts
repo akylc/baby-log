@@ -1,4 +1,4 @@
-import { post, get } from './client'
+import { post, get, put, del } from './client'
 
 export type DiaperType = 'pee' | 'poo' | 'both'
 
@@ -22,4 +22,15 @@ export function listDiapers(opts?: { date?: string; from?: string; to?: string }
     q.to = opts.to
   }
   return get<Diaper[]>('/api/diapers', Object.keys(q).length ? q : undefined)
+}
+
+export function updateDiaper(
+  id: number,
+  p: { type?: DiaperType; note?: string | null; occurred_at?: string },
+) {
+  return put<Diaper>(`/api/diapers/${id}`, p)
+}
+
+export function deleteDiaper(id: number) {
+  return del<{ id: number }>(`/api/diapers/${id}`)
 }

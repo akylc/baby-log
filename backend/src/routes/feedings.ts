@@ -62,6 +62,47 @@ const feedingRoutes: FastifyPluginAsync = async (fastify) => {
     ).get(baby.id)
     return ok(row ?? null)
   })
+
+  fastify.put('/api/feedings/:id', async (req, reply) => {
+    const uid = (req as any).userId as number
+    const id = Number((req.params as any).id)
+    const b = req.body as any
+    const baby = getBabyByUser(uid)
+    if (!baby) return reply.code(404).send(fail('请先在「我的」中创建宝宝'))
+    const row: any = db.prepare('SELECT * FROM feedings WHERE id=? AND baby_id=?').get(id, baby.id)
+    if (!row) return reply.code(404).send(fail('记录不存在'))
+    const sets: string[] = []
+    const vals: any[] = []
+    const t = row.type as string
+    if (t === 'breast') {
+      const l = b?.left_duration_min !== undefined ? numOrNull(b.left_duration_min) : row.left_duration_min
+      const r = b?.right_duration_min !== undefined ? numOrNull(b.right_duration_min) : row.right_duration_min
+      if (!l && !r) return reply.code(400).send(fail('请至少填写一侧母乳时长'))
+      if (b?.left_duration_min !== undefined) { sets.push('left_duration_min=?'); vals.push(l) }
+      if (b?.right_duration_min !== undefined) { sets.push('right_duration_min=?'); vals.push(r) }
+    } else if (t === 'formula' || t === 'bottle') {
+      if (b?.amount_ml !== undefined) { sets.push('amount_ml=?'); vals.push(numOrNull(b.amount_ml)) }
+    } else if (t === 'food') {
+      if (b?.food_name !== undefined) { sets.push('food_name=?'); vals.push(b.food_name ?? null) }
+    }
+    if (b?.note !== undefined) { sets.push('note=?'); vals.push(b.note ?? null) }
+    if (b?.occurred_at) { sets.push('occurred_at=?'); vals.push(String(b.occurred_at)) }
+    if (!sets.length) return ok(row)
+    vals.push(id)
+    db.prepare(`UPDATE feedings SET ${sets.join(', ')} WHERE id=?`).run(...vals)
+    return ok(db.prepare('SELECT * FROM feedings WHERE id=?').get(id))
+  })
+
+  fastify.delete('/api/feedings/:id', async (req, reply) => {
+    const uid = (req as any).userId as number
+    const id = Number((req.params as any).id)
+    const baby = getBabyByUser(uid)
+    if (!baby) return reply.code(404).send(fail('请先在「我的」中创建宝宝'))
+    const row = db.prepare('SELECT * FROM feedings WHERE id=? AND baby_id=?').get(id, baby.id)
+    if (!row) return reply.code(404).send(fail('记录不存在'))
+    db.prepare('DELETE FROM feedings WHERE id=?').run(id)
+    return ok({ id })
+  })
 }
 
 export default feedingRoutes

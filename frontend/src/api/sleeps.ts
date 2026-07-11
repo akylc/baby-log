@@ -1,4 +1,4 @@
-import { post, get } from './client'
+import { post, get, put, del } from './client'
 
 export interface Sleep {
   id: number
@@ -20,4 +20,15 @@ export function listSleeps(opts?: { date?: string; from?: string; to?: string })
     q.to = opts.to
   }
   return get<Sleep[]>('/api/sleeps', Object.keys(q).length ? q : undefined)
+}
+
+export function updateSleep(
+  id: number,
+  p: { duration_min?: number; note?: string | null; occurred_at?: string },
+) {
+  return put<Sleep>(`/api/sleeps/${id}`, p)
+}
+
+export function deleteSleep(id: number) {
+  return del<{ id: number }>(`/api/sleeps/${id}`)
 }

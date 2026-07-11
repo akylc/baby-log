@@ -1,4 +1,4 @@
-import { post, get } from './client'
+import { post, get, put, del } from './client'
 
 export type FeedType = 'breast' | 'formula' | 'food' | 'bottle'
 
@@ -42,4 +42,22 @@ export function listFeedings(opts?: { date?: string; from?: string; to?: string 
 
 export function getLastFeeding() {
   return get<Feeding | null>('/api/feedings/last')
+}
+
+export function updateFeeding(
+  id: number,
+  p: {
+    left_duration_min?: number | null
+    right_duration_min?: number | null
+    amount_ml?: number | null
+    food_name?: string | null
+    note?: string | null
+    occurred_at?: string
+  },
+) {
+  return put<Feeding>(`/api/feedings/${id}`, p)
+}
+
+export function deleteFeeding(id: number) {
+  return del<{ id: number }>(`/api/feedings/${id}`)
 }

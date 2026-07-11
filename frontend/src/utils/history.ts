@@ -28,3 +28,15 @@ export function pushHistory(key: string, value: string | number | null): void {
     /* 忽略隐私模式等存储异常 */
   }
 }
+
+// 删除某条历史（点击 tag 上的 × 时调用），返回删除后的剩余列表
+export function removeHistory(key: string, value: string): string[] {
+  const v = String(value)
+  const next = getHistory(key).filter((x) => x !== v)
+  try {
+    localStorage.setItem(PREFIX + key, JSON.stringify(next))
+  } catch {
+    /* 忽略隐私模式等存储异常 */
+  }
+  return next
+}

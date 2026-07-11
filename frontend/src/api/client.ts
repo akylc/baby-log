@@ -44,4 +44,10 @@ export async function post<T = any>(url: string, body: any = {}): Promise<T> {
 export async function get<T = any>(url: string, params?: any): Promise<T> {
   return http.get(url, { params })
 }
+export async function put<T = any>(url: string, body: any = {}): Promise<T> {
+  return http.put(url, body)
+}
+export async function del<T = any>(url: string): Promise<T> {
+  return http.delete(url)
+}
 export default post

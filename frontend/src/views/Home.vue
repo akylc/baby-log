@@ -68,7 +68,7 @@
           <span class="day-d">{{ grp.label }}</span>
           <span class="day-sum" v-if="grp.summary">{{ grp.summary }}</span>
         </div>
-        <div v-for="(it, i) in grp.items" :key="grp.date + '-' + i" class="tl-item">
+        <div v-for="(it, i) in grp.items" :key="grp.date + '-' + i" class="tl-item" @click="openEdit(it)">
           <div class="tl-icon">{{ it.icon }}</div>
           <div class="tl-body">
             <div class="tl-title">{{ it.title }}</div>
@@ -79,23 +79,117 @@
         </div>
       </template>
     </section>
+
+    <!-- 编辑记录弹层 -->
+    <div class="sheet-mask" v-if="editShow" @click="editShow = false">
+      <div class="sheet" @click.stop>
+        <div class="sheet-hd">
+          <span>编辑记录</span>
+          <button class="sheet-x" type="button" @click="editShow = false" aria-label="关闭">×</button>
+        </div>
+        <div class="sheet-body">
+          <template v-if="editKind === 'feeding'">
+            <template v-if="editType === 'breast'">
+              <div class="ef">
+                <label>左乳时长（分钟）</label>
+                <n-input-number v-model:value="eLeft" :min="0" :max="240" placeholder="如 15" style="width: 100%" />
+              </div>
+              <div class="ef">
+                <label>右乳时长（分钟）</label>
+                <n-input-number v-model:value="eRight" :min="0" :max="240" placeholder="如 15" style="width: 100%" />
+              </div>
+            </template>
+            <template v-else-if="editType === 'food'">
+              <div class="ef">
+                <label>辅食名称</label>
+                <n-input v-model:value="eFood" placeholder="如 米粉、南瓜泥" />
+              </div>
+            </template>
+            <template v-else>
+              <div class="ef">
+                <label>奶量（ml）</label>
+                <n-input-number v-model:value="eAmount" :min="0" :max="500" placeholder="如 120" style="width: 100%" />
+              </div>
+            </template>
+          </template>
+
+          <template v-else-if="editKind === 'sleep'">
+            <div class="ef">
+              <label>睡眠时长（分钟）</label>
+              <n-input-number v-model:value="eDuration" :min="1" :max="600" placeholder="如 90" style="width: 100%" />
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="ef">
+              <label>类型</label>
+              <div class="seg">
+                <button
+                  v-for="o in diaperOpts"
+                  :key="o.value"
+                  :class="['seg-btn', { active: eDiaper === o.value }]"
+                  type="button"
+                  @click="eDiaper = o.value"
+                >
+                  {{ o.label }}
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <div class="ef">
+            <label>时间</label>
+            <n-date-picker v-model:value="eTs" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" />
+          </div>
+          <div class="ef">
+            <label>备注（可选）</label>
+            <n-input
+              v-model:value="eNote"
+              type="textarea"
+              placeholder="想记点什么…"
+              :autosize="{ minRows: 2, maxRows: 4 }"
+            />
+          </div>
+        </div>
+        <div class="edit-actions">
+          <n-button class="save-btn" type="primary" size="large" :loading="editLoading" @click="saveEdit">保存</n-button>
+          <n-button
+            class="del-icon-btn"
+            size="large"
+            secondary
+            type="error"
+            :disabled="editLoading"
+            title="删除记录"
+            @click="deleteCurrent"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+          </n-button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { storeToRefs } from 'pinia'
 import { useBabyStore } from '@/stores/baby'
 import { getStats, type DayStats } from '@/api/stats'
-import { listFeedings, type Feeding } from '@/api/feedings'
-import { listSleeps, type Sleep } from '@/api/sleeps'
-import { listDiapers, type Diaper } from '@/api/diapers'
-import { formatTime } from '@/utils/time'
+import { listFeedings, updateFeeding, deleteFeeding, type Feeding } from '@/api/feedings'
+import { listSleeps, updateSleep, deleteSleep, type Sleep } from '@/api/sleeps'
+import { listDiapers, updateDiaper, deleteDiaper, type Diaper } from '@/api/diapers'
+import { formatTime, tsToIso, isoToTs } from '@/utils/time'
 
 const router = useRouter()
 const message = useMessage()
+const dialog = useDialog()
 const babyStore = useBabyStore()
 const { baby } = storeToRefs(babyStore)
 
@@ -162,7 +256,7 @@ const stats = ref<DayStats>({
 const feedings = ref<Feeding[]>([])
 const sleeps = ref<Sleep[]>([])
 const diapers = ref<Diaper[]>([])
-const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gap?: string }[]>([])
+const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gap?: string; kind: 'feeding' | 'sleep' | 'diaper'; id: number; raw: any }[]>([])
 
 async function refresh() {
   try {
@@ -215,14 +309,14 @@ function buildTimeline(prevDayLast: string | null) {
       icon = '🍚'
       title = `辅食 ${f.food_name || ''}`.trim()
     }
-    items.push({ time: formatTime(f.occurred_at), sortKey: f.occurred_at, icon, title, sub: f.note || undefined })
+    items.push({ time: formatTime(f.occurred_at), sortKey: f.occurred_at, icon, title, sub: f.note || undefined, kind: 'feeding', id: f.id, raw: f })
   })
   sleeps.value.forEach((s) => {
-    items.push({ time: formatTime(s.occurred_at), sortKey: s.occurred_at, icon: '😴', title: `睡眠 ${s.duration_min}分钟`, sub: s.note || undefined })
+    items.push({ time: formatTime(s.occurred_at), sortKey: s.occurred_at, icon: '😴', title: `睡眠 ${s.duration_min}分钟`, sub: s.note || undefined, kind: 'sleep', id: s.id, raw: s })
   })
   diapers.value.forEach((d) => {
     const map: Record<string, string> = { pee: '尿片', poo: '便便', both: '尿+便' }
-    items.push({ time: formatTime(d.occurred_at), sortKey: d.occurred_at, icon: '💩', title: map[d.type] || '换尿布', sub: d.note || undefined })
+    items.push({ time: formatTime(d.occurred_at), sortKey: d.occurred_at, icon: '💩', title: map[d.type] || '换尿布', sub: d.note || undefined, kind: 'diaper', id: d.id, raw: d })
   })
   items.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
   const now = Date.now()
@@ -294,6 +388,132 @@ function fmtGap(min: number): string {
 
 function goBaby() {
   router.push('/baby')
+}
+
+// ---------- 首页记录列表：点击编辑 ----------
+const diaperOpts = [
+  { value: 'pee', label: '尿' },
+  { value: 'poo', label: '便' },
+  { value: 'both', label: '尿+便' },
+]
+const editShow = ref(false)
+const editKind = ref<'feeding' | 'sleep' | 'diaper'>('feeding')
+const editId = ref(0)
+const editType = ref<string>('')
+const eLeft = ref<number | null>(null)
+const eRight = ref<number | null>(null)
+const eAmount = ref<number | null>(null)
+const eFood = ref('')
+const eDuration = ref<number | null>(null)
+const eDiaper = ref<'pee' | 'poo' | 'both'>('pee')
+const eNote = ref('')
+const eTs = ref(Date.now())
+const editLoading = ref(false)
+
+function openEdit(it: any) {
+  editKind.value = it.kind
+  editId.value = it.id
+  const r = it.raw
+  eLeft.value = null
+  eRight.value = null
+  eAmount.value = null
+  eFood.value = ''
+  eDuration.value = null
+  eDiaper.value = 'pee'
+  if (it.kind === 'feeding') {
+    editType.value = r.type
+    if (r.type === 'breast') {
+      eLeft.value = r.left_duration_min
+      eRight.value = r.right_duration_min
+    } else if (r.type === 'food') {
+      eFood.value = r.food_name || ''
+    } else {
+      eAmount.value = r.amount_ml
+    }
+  } else if (it.kind === 'sleep') {
+    eDuration.value = r.duration_min
+  } else {
+    eDiaper.value = r.type
+  }
+  eNote.value = r.note || ''
+  eTs.value = isoToTs(r.occurred_at)
+  editShow.value = true
+}
+
+async function saveEdit() {
+  editLoading.value = true
+  try {
+    if (editKind.value === 'feeding') {
+      if (editType.value === 'breast') {
+        if (!eLeft.value && !eRight.value) {
+          message.warning('请至少填写一侧母乳时长')
+          editLoading.value = false
+          return
+        }
+      } else if (editType.value !== 'food' && (!eAmount.value || eAmount.value <= 0)) {
+        message.warning('请填写有效的奶量')
+        editLoading.value = false
+        return
+      }
+      await updateFeeding(editId.value, {
+        left_duration_min: eLeft.value,
+        right_duration_min: eRight.value,
+        amount_ml: eAmount.value,
+        food_name: eFood.value || null,
+        note: eNote.value || null,
+        occurred_at: tsToIso(eTs.value),
+      })
+    } else if (editKind.value === 'sleep') {
+      if (!eDuration.value || eDuration.value <= 0) {
+        message.warning('请填写有效的睡眠时长')
+        editLoading.value = false
+        return
+      }
+      await updateSleep(editId.value, {
+        duration_min: eDuration.value,
+        note: eNote.value || null,
+        occurred_at: tsToIso(eTs.value),
+      })
+    } else {
+      await updateDiaper(editId.value, {
+        type: eDiaper.value,
+        note: eNote.value || null,
+        occurred_at: tsToIso(eTs.value),
+      })
+    }
+    message.success('已更新')
+    editShow.value = false
+    await refresh()
+  } catch (e: any) {
+    message.error(e?.message || '保存失败')
+  } finally {
+    editLoading.value = false
+  }
+}
+
+function deleteCurrent() {
+  dialog.warning({
+    title: '删除记录',
+    content: '确定删除这条记录吗？删除后无法恢复。',
+    positiveText: '删除',
+    negativeText: '取消',
+    type: 'error',
+    onPositiveClick: async () => {
+      editLoading.value = true
+      try {
+        if (editKind.value === 'feeding') await deleteFeeding(editId.value)
+        else if (editKind.value === 'sleep') await deleteSleep(editId.value)
+        else await deleteDiaper(editId.value)
+        message.success('已删除')
+        editShow.value = false
+        await refresh()
+      } catch (e: any) {
+        message.error(e?.message || '删除失败')
+      } finally {
+        editLoading.value = false
+      }
+    },
+  })
 }
 
 function todayStr(): string {
@@ -447,6 +667,11 @@ onMounted(refresh)
   padding: 12px;
   margin-bottom: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.tl-item:active {
+  background: #fff0f5;
 }
 .tl-icon {
   width: 38px;
@@ -488,5 +713,105 @@ onMounted(refresh)
   font-size: 12px;
   color: #b5bac6;
   flex: none;
+}
+.sheet-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+}
+.sheet {
+  width: 100%;
+  max-width: 480px;
+  background: #f7f8fa;
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  animation: sheetUp 0.2s ease;
+}
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.sheet-hd > span {
+  font-size: 16px;
+  font-weight: 600;
+  color: #4a4f5c;
+}
+.sheet-x {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: #eceef3;
+  color: #6b7180;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.ef {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ef label {
+  font-size: 13px;
+  color: #6b7180;
+}
+.edit-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 14px;
+}
+.edit-actions .save-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.edit-actions .del-icon-btn {
+  flex: 0 0 52px;
+  width: 52px;
+  padding: 0;
+  border-radius: 14px;
+}
+.seg {
+  display: flex;
+  gap: 8px;
+}
+.seg-btn {
+  flex: 1;
+  border: 1px solid #e6e8ef;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 13px;
+  color: #4a4f5c;
+  cursor: pointer;
+}
+.seg-btn.active {
+  background: #fff0f5;
+  border-color: #ff7aa2;
+  color: #ff5c8a;
+  font-weight: 600;
 }
 </style>
