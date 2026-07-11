@@ -1,5 +1,5 @@
 <template>
-  <n-drawer v-model:show="show" :width="420" placement="right">
+  <n-drawer :show="show" @update:show="emit('update:show', $event)" :width="420" placement="right">
     <n-drawer-content :title="topic ? '编辑主题' : '新建主题'">
       <n-form label-placement="top">
         <n-form-item label="名称">

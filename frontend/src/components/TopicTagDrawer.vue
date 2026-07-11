@@ -1,5 +1,5 @@
 <template>
-  <n-drawer v-model:show="show" :width="440" placement="right">
+  <n-drawer :show="show" @update:show="emit('update:show', $event)" :width="440" placement="right">
     <n-drawer-content :title="`标签管理 · ${topic?.name || ''}`">
       <n-empty v-if="tags.length === 0" description="还没有标签，添加一个吧" />
       <n-list v-else bordered>

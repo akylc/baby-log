@@ -1,5 +1,5 @@
 <template>
-  <n-drawer v-model:show="show" :width="420" placement="right">
+  <n-drawer :show="show" @update:show="emit('update:show', $event)" :width="420" placement="right">
     <n-drawer-content :title="event ? '编辑事件' : '新建事件'">
       <n-form label-placement="top">
         <n-form-item label="标题" required>
@@ -14,7 +14,7 @@
       </n-form>
       <template #footer>
         <n-space justify="end">
-          <n-button @click="show = false">取消</n-button>
+          <n-button @click="emit('update:show', false)">取消</n-button>
           <n-button type="primary" :loading="loading" @click="save">保存</n-button>
         </n-space>
       </template>
