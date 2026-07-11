@@ -2,7 +2,14 @@ packages:
   - 'backend'
   - 'frontend'
 
-# pnpm 11：原生构建 / 需要跑 install 脚本的包需在 workspace 配置中放行
+# 本环境 pnpm 的构建放行机制：allowBuilds 才是实际生效的批准键
+# （standard onlyBuiltDependencies 在此被 supply-chain 策略覆盖，不生效）
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+  vue-demi: true
+
+# pnpm 11 文档标准字段（本环境被策略覆盖，保留以防迁移）
 onlyBuiltDependencies:
   - better-sqlite3
   - esbuild
