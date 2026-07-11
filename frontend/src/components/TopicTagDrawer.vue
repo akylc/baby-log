@@ -1,5 +1,5 @@
 <template>
-  <n-drawer :show="show" @update:show="emit('update:show', $event)" :width="440" placement="right">
+  <n-drawer :show="show" @update:show="emit('update:show', $event)" :width="drawerWidth" placement="right">
     <n-drawer-content :title="`标签管理 · ${topic?.name || ''}`">
       <n-empty v-if="tags.length === 0" description="还没有标签，添加一个吧" />
       <n-list v-else bordered>
@@ -56,6 +56,7 @@ import {
   useMessage,
 } from 'naive-ui'
 import { topicsApi } from '@/api/topics'
+import { useDrawerWidth } from '@/composables/useResponsive'
 import type { Topic, TopicTag } from '@/types'
 
 const props = defineProps<{ show: boolean; topic: Topic | null }>()
@@ -64,6 +65,7 @@ const emit = defineEmits<{
   (e: 'saved'): void
 }>()
 
+const { drawerWidth } = useDrawerWidth(440)
 const message = useMessage()
 const tags = ref<TopicTag[]>([])
 const loading = ref(false)

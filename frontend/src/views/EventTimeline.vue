@@ -40,6 +40,11 @@
           <div class="event-time">{{ formatTime(e.occurred_at) }}</div>
           <div class="event-title">{{ e.title }}</div>
           <div v-if="e.note" class="event-note">{{ e.note }}</div>
+          <n-space v-if="e.tags && e.tags.length" style="margin-top: 8px">
+            <n-tag v-for="t in e.tags" :key="t.id" :color="tagColor(t)" size="small" :bordered="false">
+              {{ t.name }}
+            </n-tag>
+          </n-space>
         </n-card>
       </div>
     </section>
@@ -61,12 +66,17 @@ import {
   NRadioButton,
   NCard,
   NEmpty,
+  NTag,
 } from 'naive-ui'
 import { topicsApi } from '@/api/topics'
 import { eventsApi } from '@/api/events'
 import type { Topic, TopicTag, EventItem } from '@/types'
 import { formatTime } from '@/utils/time'
 import EventDrawer from '@/components/EventDrawer.vue'
+
+function tagColor(t: TopicTag) {
+  return t.color ? { color: t.color, textColor: '#fff', borderColor: t.color } : undefined
+}
 
 const route = useRoute()
 const router = useRouter()

@@ -10,6 +10,25 @@ function getRecordTags(recordId: number) {
     .all(recordId)
 }
 
+function getEventTags(eventId: number) {
+  return db
+    .prepare(
+      `SELECT tt.* FROM topic_tags tt JOIN event_tags et ON et.tag_id=tt.id WHERE et.event_id=?`,
+    )
+    .all(eventId)
+}
+
+function replaceEventTags(eventId: number, tagIds: number[]) {
+  const clean = Array.isArray(tagIds) ? tagIds.map(Number).filter(Boolean) : []
+  const del = db.prepare('DELETE FROM event_tags WHERE event_id=?')
+  const ins = db.prepare('INSERT OR IGNORE INTO event_tags(event_id, tag_id) VALUES(?, ?)')
+  const tx = db.transaction((ids: number[]) => {
+    del.run(eventId)
+    for (const id of ids) ins.run(eventId, id)
+  })
+  tx(clean)
+}
+
 export default async function eventsRoutes(fastify: FastifyInstance) {
   const uid = getUserId()
 
@@ -42,15 +61,19 @@ export default async function eventsRoutes(fastify: FastifyInstance) {
       params.push(q, q)
     }
     if (tags.length) {
+      // 事件自身标签 或 其下记录标签 任一命中即算匹配
       const clauses = tags.map(
-        () => `EXISTS (SELECT 1 FROM records r JOIN record_tags rt ON rt.record_id=r.id WHERE r.event_id=e.id AND rt.tag_id=?)`,
+        () =>
+          `(EXISTS (SELECT 1 FROM records r JOIN record_tags rt ON rt.record_id=r.id WHERE r.event_id=e.id AND rt.tag_id=?) OR EXISTS (SELECT 1 FROM event_tags et WHERE et.event_id=e.id AND et.tag_id=?))`,
       )
       sql += match === 'all' ? ` AND ${clauses.map((c) => `(${c})`).join(' AND ')}` : ` AND (${clauses.join(' OR ')})`
-      params.push(...tags)
+      // 每个 tag 在 record_tags 与 event_tags 各用一次占位符
+      params.push(...tags, ...tags)
     }
     sql += ` ORDER BY e.occurred_at DESC`
-    const rows = db.prepare(sql).all(...params)
-    return ok(rows)
+    const rows = db.prepare(sql).all(...params) as any[]
+    const enriched = rows.map((e) => ({ ...e, tags: getEventTags(e.id) }))
+    return ok(enriched)
   })
 
   // 创建事件
@@ -63,7 +86,9 @@ export default async function eventsRoutes(fastify: FastifyInstance) {
     const info = db
       .prepare('INSERT INTO events(topic_id, title, occurred_at, note) VALUES(?, ?, ?, ?)')
       .run(b.topicId, String(b.title), String(b.occurred_at), b.note ?? null)
-    return ok({ id: Number(info.lastInsertRowid) })
+    const newId = Number(info.lastInsertRowid)
+    if (Array.isArray(b?.tags)) replaceEventTags(newId, b.tags)
+    return ok({ id: newId, tags: getEventTags(newId) })
   })
 
   // 事件详情（含记录与标签）
@@ -75,7 +100,7 @@ export default async function eventsRoutes(fastify: FastifyInstance) {
     if (!event) return reply.code(404).send(failBody('事件不存在'))
     const records = db.prepare('SELECT * FROM records WHERE event_id=? ORDER BY created_at').all(b.id)
     const enriched = (records as any[]).map((r) => ({ ...r, tags: getRecordTags(r.id) }))
-    return ok({ ...(event as any), records: enriched })
+    return ok({ ...(event as any), tags: getEventTags(b.id), records: enriched })
   })
 
   // 编辑事件
@@ -89,7 +114,8 @@ export default async function eventsRoutes(fastify: FastifyInstance) {
       )
       .run(b.title ?? null, b.occurred_at ?? null, b.note ?? null, b.id, uid)
     if (info.changes === 0) return reply.code(404).send(failBody('事件不存在'))
-    return ok({ id: b.id })
+    if (Array.isArray(b?.tags)) replaceEventTags(b.id, b.tags)
+    return ok({ id: b.id, tags: getEventTags(b.id) })
   })
 
   // 删除事件（级联删记录）

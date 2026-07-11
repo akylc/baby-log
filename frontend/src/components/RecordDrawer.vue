@@ -1,5 +1,5 @@
 <template>
-  <n-drawer :show="show" @update:show="emit('update:show', $event)" :width="440" placement="right">
+  <n-drawer :show="show" @update:show="emit('update:show', $event)" :width="drawerWidth" placement="right">
     <n-drawer-content :title="record ? '编辑记录' : '添加记录'">
       <n-form label-placement="top">
         <n-form-item label="类型" required>
@@ -61,6 +61,7 @@ import { useTypesStore } from '@/stores/types'
 import { recordsApi } from '@/api/records'
 import { topicsApi } from '@/api/topics'
 import { uploadImage } from '@/api/upload'
+import { useDrawerWidth } from '@/composables/useResponsive'
 import type { RecordItem, TopicTag, RecordType } from '@/types'
 
 const props = defineProps<{
@@ -74,6 +75,7 @@ const emit = defineEmits<{
   (e: 'saved'): void
 }>()
 
+const { drawerWidth } = useDrawerWidth(440)
 const message = useMessage()
 const store = useTypesStore()
 const loading = ref(false)

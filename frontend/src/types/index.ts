@@ -24,6 +24,7 @@ export interface EventItem {
   note: string | null
   created_at: string
   updated_at: string
+  tags?: TopicTag[]
 }
 
 export interface RecordType {

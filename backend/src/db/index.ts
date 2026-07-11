@@ -63,10 +63,18 @@ CREATE TABLE IF NOT EXISTS record_tags (
   PRIMARY KEY (record_id, tag_id)
 );
 
+CREATE TABLE IF NOT EXISTS event_tags (
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  tag_id   INTEGER NOT NULL REFERENCES topic_tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (event_id, tag_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_events_topic ON events(topic_id);
 CREATE INDEX IF NOT EXISTS idx_records_event ON records(event_id);
 CREATE INDEX IF NOT EXISTS idx_record_tags_record ON record_tags(record_id);
 CREATE INDEX IF NOT EXISTS idx_record_tags_tag ON record_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_event_tags_event ON event_tags(event_id);
+CREATE INDEX IF NOT EXISTS idx_event_tags_tag ON event_tags(tag_id);
 `
 
 db.exec(schema)

@@ -21,7 +21,7 @@
       </n-list>
     </section>
 
-    <n-drawer v-model:show="show" :width="420" placement="right">
+    <n-drawer v-model:show="show" :width="drawerWidth" placement="right">
       <n-drawer-content title="新增类型">
         <n-form label-placement="top">
           <n-form-item label="类型 key（唯一英文标识）">
@@ -63,11 +63,13 @@ import {
 } from 'naive-ui'
 import { useTypesStore } from '@/stores/types'
 import { typesApi } from '@/api/types'
+import { useDrawerWidth } from '@/composables/useResponsive'
 import type { RecordType } from '@/types'
 
 const router = useRouter()
 const message = useMessage()
 const store = useTypesStore()
+const { drawerWidth } = useDrawerWidth(420)
 const types = ref<RecordType[]>([])
 const show = ref(false)
 const loading = ref(false)

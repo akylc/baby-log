@@ -11,6 +11,11 @@
         <div class="event-time">{{ formatTime(detail.occurred_at) }}</div>
         <div class="event-title">{{ detail.title }}</div>
         <div v-if="detail.note" class="event-note">{{ detail.note }}</div>
+        <n-space v-if="detail.tags && detail.tags.length" style="margin-top: 8px">
+          <n-tag v-for="t in detail.tags" :key="t.id" :color="tagColor(t)" size="small" :bordered="false">
+            {{ t.name }}
+          </n-tag>
+        </n-space>
         <template #footer>
           <n-space justify="end">
             <n-button size="small" @click="openEditEvent">编辑事件</n-button>
