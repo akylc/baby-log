@@ -1,4 +1,11 @@
-import { DatabaseSync } from 'node:sqlite'
+import { createRequire } from 'node:module'
+
+declare const __filename: string
+// 用 require() 调用而非静态 import 引入 node:sqlite：esbuild 在打包静态 import 的 node: 内置模块时
+// 会剥离 `node:` 前缀（变成 require("sqlite")，该包不存在），而 require() 调用会被原样保留为
+// require("node:sqlite")，从而正确加载 Node 内置模块。CJS 产物中 __filename 可用。
+const require = createRequire(__filename)
+const { DatabaseSync } = require('node:sqlite')
 import { config } from '../config'
 
 export const db = new DatabaseSync(config.dbPath)
