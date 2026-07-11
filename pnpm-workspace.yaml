@@ -1,0 +1,8 @@
+packages:
+  - 'backend'
+  - 'frontend'
+
+# pnpm 11：原生构建需在 workspace 配置中放行
+onlyBuiltDependencies:
+  - better-sqlite3
+  - esbuild
