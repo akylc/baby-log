@@ -5,9 +5,9 @@
 ## 技术栈（依据 PRD v0.6）
 
 - **前端**：Vite + Vue 3 + TypeScript + Vue Router + Pinia + Naive UI（响应式，移动/桌面自适应）
-- **后端**：Fastify + TypeScript + better-sqlite3，使用 **tsup** 打包
+- **后端**：Fastify + TypeScript + 内置 `node:sqlite`（Node ≥ 22.5），使用 **tsup** 打包
 - **包管理**：pnpm workspace 单体仓库（monorepo），`backend/` 与 `frontend/` 两个子包
-- **部署**：前后端共用同一端口（默认 `:3000`）；前端 `vite build` 产物输出到后端 `public/`，由 Fastify 单端口托管（SPA history 回退）
+- **部署**：前后端共用同一端口（默认 `:3000`）；前端 `vite build` 产物输出到自身 `dist/`，再由后端 tsup 复制到 `backend/dist/public`，由 Fastify 单端口托管（SPA history 回退）；`backend/dist` 为完全自包含、可跨平台直接部署的运行包
 - **接口约定**：所有**数据接口一律 POST**；`GET` 仅用于前端页面与静态资源
 
 ## 目录
@@ -16,8 +16,8 @@
 .
 ├── package.json          # 根：workspace 入口
 ├── pnpm-workspace.yaml
-├── backend/              # Fastify + TS + SQLite3（tsup 打包）
-└── frontend/             # Vite + Vue3 + TS（构建产物输出到 backend/public）
+├── backend/              # Fastify + TS + node:sqlite（tsup 打包，产物 dist/ 自包含）
+└── frontend/             # Vite + Vue3 + TS（构建产物输出到自身 dist/，再并入后端 dist/public）
 ```
 
 ## 常用命令

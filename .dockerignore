@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+dist
+backend/dist
+frontend/dist
+.git
+.gitignore
+.workbuddy
+**/*.log
+data
+backend/data
+uploads
+Dockerfile
+.dockerignore

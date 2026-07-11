@@ -9,8 +9,8 @@ export default defineConfig({
   sourcemap: true,
   // 把除原生模块外的所有运行时依赖打包进 dist，使其自包含、可直接 node dist/server.js 运行
   noExternal: [/.*/],
-  // better-sqlite3 是原生模块（含预编译 .node），不参与 JS 打包，构建后复制到 dist/node_modules
-  external: ['better-sqlite3'],
-  // 构建完成后：复制 better-sqlite3 原生包 + 前端产物到 dist，保证 dist 完整自包含
-  onSuccess: 'node ./scripts/copy-native.mjs && node ./scripts/copy-frontend.mjs',
+  // node:sqlite 是 Node 内置模块，标记 external 即可（无需打包、无需复制原生二进制，天然跨平台）
+  external: ['node:sqlite'],
+  // 构建完成后把前端产物复制到 dist/public，保证 dist 完整自包含、可跨平台直接部署
+  onSuccess: 'node ./scripts/copy-frontend.mjs',
 })

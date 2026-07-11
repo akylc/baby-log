@@ -1,9 +1,9 @@
-import Database from 'better-sqlite3'
+import { DatabaseSync } from 'node:sqlite'
 import { config } from '../config'
 
-export const db = new Database(config.dbPath)
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
+export const db = new DatabaseSync(config.dbPath)
+db.exec('PRAGMA journal_mode = WAL')
+db.exec('PRAGMA foreign_keys = ON')
 
 const schema = `
 CREATE TABLE IF NOT EXISTS users (

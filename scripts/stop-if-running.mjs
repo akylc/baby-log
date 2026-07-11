@@ -1,6 +1,5 @@
 // 在 pnpm build / dev / start 等会重建 dist 的操作前，自动停掉占用 3000 端口的
-// 后端进程，避免运行中的实例锁住 better-sqlite3 的 .node 文件，导致 tsup 的
-// clean / copy-native 覆盖失败（EIO Access is denied）。
+// 后端进程，避免运行中的实例锁住数据库文件或端口，导致 tsup 的 clean 复制失败。
 import { execSync } from 'node:child_process'
 
 const PORT = 3000
