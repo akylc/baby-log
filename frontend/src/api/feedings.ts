@@ -30,8 +30,14 @@ export function createFeeding(p: {
   return post<Feeding>('/api/feedings', p)
 }
 
-export function listFeedings(date?: string) {
-  return get<Feeding[]>('/api/feedings', date ? { date } : undefined)
+export function listFeedings(opts?: { date?: string; from?: string; to?: string }) {
+  const q: Record<string, string> = {}
+  if (opts?.date) q.date = opts.date
+  else if (opts?.from && opts?.to) {
+    q.from = opts.from
+    q.to = opts.to
+  }
+  return get<Feeding[]>('/api/feedings', Object.keys(q).length ? q : undefined)
 }
 
 export function getLastFeeding() {

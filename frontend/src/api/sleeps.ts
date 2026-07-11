@@ -12,6 +12,12 @@ export function createSleep(p: { duration_min: number; note?: string | null; occ
   return post<Sleep>('/api/sleeps', p)
 }
 
-export function listSleeps(date?: string) {
-  return get<Sleep[]>('/api/sleeps', date ? { date } : undefined)
+export function listSleeps(opts?: { date?: string; from?: string; to?: string }) {
+  const q: Record<string, string> = {}
+  if (opts?.date) q.date = opts.date
+  else if (opts?.from && opts?.to) {
+    q.from = opts.from
+    q.to = opts.to
+  }
+  return get<Sleep[]>('/api/sleeps', Object.keys(q).length ? q : undefined)
 }

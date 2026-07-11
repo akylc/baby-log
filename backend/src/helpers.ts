@@ -30,6 +30,15 @@ export function dateRange(date?: string): { start: string; end: string } {
   return { start: fmtLocal(start), end: fmtLocal(end) }
 }
 
+// 给定起始/结束日期(YYYY-MM-DD)返回区间 [from 00:00, to+1天 00:00) 本地时间字符串
+export function rangeFromTo(from: string, to: string): { start: string; end: string } {
+  const [fy, fm, fd] = from.split('-').map(Number)
+  const [ty, tm, td] = to.split('-').map(Number)
+  const start = new Date(fy, fm - 1, fd, 0, 0, 0, 0)
+  const end = new Date(ty, tm - 1, td + 1, 0, 0, 0, 0)
+  return { start: fmtLocal(start), end: fmtLocal(end) }
+}
+
 // 数字或 null（空值统一存 NULL）
 export function numOrNull(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null

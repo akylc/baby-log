@@ -61,17 +61,23 @@
     </n-empty>
 
     <section class="timeline" v-else>
-      <div class="sec-title">今日记录</div>
-      <div v-if="timeline.length === 0" class="no-data">{{ viewingToday ? '还没有记录，点底部「记录」开始吧 👇' : '这一天还没有记录' }}</div>
-      <div v-for="(it, i) in timeline" :key="i" class="tl-item">
-        <div class="tl-icon">{{ it.icon }}</div>
-        <div class="tl-body">
-          <div class="tl-title">{{ it.title }}</div>
-          <div class="tl-sub" v-if="it.sub">{{ it.sub }}</div>
-          <div class="tl-gap" v-if="it.gap">{{ it.gap }}</div>
+      <div class="sec-title">📅 {{ viewingToday ? '近 7 天' : '近 7 天（截至 ' + selectedDateLabel + '）' }}</div>
+      <div v-if="timeline.length === 0" class="no-data">还没有记录，点底部「记录」开始吧 👇</div>
+      <template v-for="grp in dayGroups" :key="grp.date">
+        <div class="day-head">
+          <span class="day-d">{{ grp.label }}</span>
+          <span class="day-sum" v-if="grp.summary">{{ grp.summary }}</span>
         </div>
-        <div class="tl-time">{{ it.time }}</div>
-      </div>
+        <div v-for="(it, i) in grp.items" :key="grp.date + '-' + i" class="tl-item">
+          <div class="tl-icon">{{ it.icon }}</div>
+          <div class="tl-body">
+            <div class="tl-title">{{ it.title }}</div>
+            <div class="tl-sub" v-if="it.sub">{{ it.sub }}</div>
+            <div class="tl-gap" v-if="it.gap">{{ it.gap }}</div>
+          </div>
+          <div class="tl-time">{{ it.time }}</div>
+        </div>
+      </template>
     </section>
   </div>
 </template>
@@ -113,10 +119,10 @@ function dateStr(ts: number): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
-function prevDateStr(d: string): string {
+function shiftDateStr(d: string, delta: number): string {
   const [y, m, day] = d.split('-').map(Number)
   const dt = new Date(y, m - 1, day)
-  dt.setDate(dt.getDate() - 1)
+  dt.setDate(dt.getDate() + delta)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`
 }
@@ -161,21 +167,23 @@ const timeline = ref<{ time: string; sortKey: string; icon: string; title: strin
 async function refresh() {
   try {
     await babyStore.fetch()
-    const prev = prevDateStr(selectedDate.value)
+    // 以选中日期为窗口最末一天，向前取 6 天，共近 7 天
+    const fromDate = shiftDateStr(selectedDate.value, -6)
+    const prevDate = shiftDateStr(fromDate, -1) // 前一天（用于最早项跨天「距上次」）
     const [s, f, sl, d, pf, ps, pd] = await Promise.all([
       getStats(selectedDate.value),
-      listFeedings(selectedDate.value),
-      listSleeps(selectedDate.value),
-      listDiapers(selectedDate.value),
-      listFeedings(prev),
-      listSleeps(prev),
-      listDiapers(prev),
+      listFeedings({ from: fromDate, to: selectedDate.value }),
+      listSleeps({ from: fromDate, to: selectedDate.value }),
+      listDiapers({ from: fromDate, to: selectedDate.value }),
+      listFeedings({ date: prevDate }),
+      listSleeps({ date: prevDate }),
+      listDiapers({ date: prevDate }),
     ])
     stats.value = s
     feedings.value = f
     sleeps.value = sl
     diapers.value = d
-    // 前一天最后一条记录（跨天计算「距上次」的下界）
+    // 前一天最后一条记录（7 天窗口之外，作为最早项的「距上次」下界）
     const prevAll = [...pf, ...ps, ...pd]
     const prevDayLast = prevAll.length
       ? prevAll.reduce((m, r) => (r.occurred_at > m ? r.occurred_at : m), prevAll[0].occurred_at)
@@ -194,8 +202,8 @@ function buildTimeline(prevDayLast: string | null) {
     if (f.type === 'breast') {
       icon = '🤱'
       const parts: string[] = []
-      if (f.left_duration_min) parts.push(`左${f.left_duration_min}分`)
-      if (f.right_duration_min) parts.push(`右${f.right_duration_min}分`)
+      if (f.left_duration_min) parts.push(`左${f.left_duration_min}分钟`)
+      if (f.right_duration_min) parts.push(`右${f.right_duration_min}分钟`)
       title = '母乳' + (parts.length ? ' ' + parts.join(' / ') : '')
     } else if (f.type === 'formula') {
       icon = '🥛'
@@ -218,33 +226,70 @@ function buildTimeline(prevDayLast: string | null) {
   })
   items.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
   const now = Date.now()
-  const isToday = viewingToday.value
+  // 「距上次」= 距时间上更早的记录（倒序数组中的下一项）；最新一条若是今天则显示「距现在」
   timeline.value = items.map((it, i) => {
     const cur = new Date(it.sortKey.replace(' ', 'T')).getTime()
     let gap = ''
     if (i === 0) {
-      // 最新一条：今天显示「距现在」，历史日不显示间隔
-      if (isToday) gap = '距现在 ' + fmtGap(Math.max(0, Math.round((now - cur) / 60000)))
-    } else {
-      // 「距上次」= 距时间上更早的那条记录（倒序数组中为 i+1）
-      let olderTs: number | null = null
-      if (i === items.length - 1 && prevDayLast) {
-        olderTs = new Date(prevDayLast.replace(' ', 'T')).getTime()
-      } else if (i < items.length - 1) {
-        olderTs = new Date(items[i + 1].sortKey.replace(' ', 'T')).getTime()
-      }
-      if (olderTs != null) gap = '距上次 ' + fmtGap(Math.max(1, Math.round((cur - olderTs) / 60000)))
+      if (it.sortKey.slice(0, 10) === today) gap = '距现在 ' + fmtGap(Math.max(0, Math.round((now - cur) / 60000)))
+    } else if (i < items.length - 1) {
+      const older = new Date(items[i + 1].sortKey.replace(' ', 'T')).getTime()
+      gap = '距上次 ' + fmtGap(Math.max(1, Math.round((cur - older) / 60000)))
+    } else if (prevDayLast) {
+      // 最早一项：用 7 天窗口前一天的最后记录作为「距上次」下界（跨天回溯）
+      const older = new Date(prevDayLast.replace(' ', 'T')).getTime()
+      gap = '距上次 ' + fmtGap(Math.max(1, Math.round((cur - older) / 60000)))
     }
     return { ...it, gap }
   })
+}
+
+// 按「日」分组（最新一天在前），每组含日期标签与当日小结
+const dayGroups = computed(() => {
+  const groups: { date: string; label: string; summary: string; items: typeof timeline.value }[] = []
+  for (const it of timeline.value) {
+    const day = it.sortKey.slice(0, 10)
+    let g = groups.find((x) => x.date === day)
+    if (!g) {
+      g = { date: day, label: dayLabel(day), summary: '', items: [] }
+      groups.push(g)
+    }
+    g.items.push(it)
+  }
+  for (const g of groups) g.summary = daySummary(g.date)
+  return groups
+})
+
+function dayLabel(day: string): string {
+  if (day === today) return '今日记录'
+  if (day === shiftDateStr(today, -1)) return '昨天'
+  if (day === shiftDateStr(today, -2)) return '前天'
+  const [y, m, d] = day.split('-').map(Number)
+  const w = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][new Date(y, m - 1, d).getDay()]
+  return `${Number(m)}月${Number(d)}日 ${w}`
+}
+
+function daySummary(day: string): string {
+  const f = feedings.value.filter((x) => x.occurred_at.slice(0, 10) === day)
+  const sl = sleeps.value.filter((x) => x.occurred_at.slice(0, 10) === day)
+  const d = diapers.value.filter((x) => x.occurred_at.slice(0, 10) === day)
+  const parts: string[] = []
+  if (f.length) {
+    parts.push(`哺乳${f.length}次`)
+    const milk = f.filter((x) => x.type === 'formula' || x.type === 'bottle').reduce((s, x) => s + (x.amount_ml || 0), 0)
+    if (milk) parts.push(`奶量${milk}ml`)
+  }
+  if (sl.length) parts.push(`睡眠${sl.length}次`)
+  if (d.length) parts.push(`尿布${d.length}次`)
+  return parts.join(' · ')
 }
 
 function fmtGap(min: number): string {
   if (min < 1) return '刚刚'
   const h = Math.floor(min / 60)
   const m = min % 60
-  if (h > 0) return m > 0 ? `${h}小时${m}分` : `${h}小时`
-  return `${m}分`
+  if (h > 0) return m > 0 ? `${h}小时${m}分钟` : `${h}小时`
+  return `${m}分钟`
 }
 
 function goBaby() {
@@ -363,6 +408,29 @@ onMounted(refresh)
   font-weight: 600;
   margin-bottom: 10px;
   color: #4a4f5c;
+}
+.day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 14px 2px 8px;
+  padding-top: 4px;
+}
+.day-head:first-of-type {
+  margin-top: 0;
+}
+.day-head .day-d {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ff5c8a;
+}
+.day-head .day-sum {
+  font-size: 11px;
+  color: #9aa0ad;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .no-data {
   color: #9aa0ad;

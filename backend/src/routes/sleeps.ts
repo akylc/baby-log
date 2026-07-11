@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify'
 import { db } from '../db'
-import { getBabyByUser, dateRange, numOrNull, localNow } from '../helpers'
+import { getBabyByUser, dateRange, rangeFromTo, numOrNull, localNow } from '../helpers'
 import { ok, fail } from '../reply'
 
 const sleepRoutes: FastifyPluginAsync = async (fastify) => {
@@ -22,7 +22,8 @@ const sleepRoutes: FastifyPluginAsync = async (fastify) => {
     const uid = (req as any).userId as number
     const baby = getBabyByUser(uid)
     if (!baby) return ok([])
-    const { start, end } = dateRange((req.query as any)?.date as string | undefined)
+    const q = req.query as any
+    const { start, end } = q?.from && q?.to ? rangeFromTo(q.from, q.to) : dateRange(q?.date)
     const rows = db.prepare(
       'SELECT * FROM sleeps WHERE baby_id=? AND occurred_at >= ? AND occurred_at < ? ORDER BY occurred_at DESC',
     ).all(baby.id, start, end)
