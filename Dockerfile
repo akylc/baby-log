@@ -14,6 +14,6 @@ COPY backend/dist ./dist
 RUN mkdir -p /app/data /app/uploads
 VOLUME ["/app/data", "/app/uploads"]
 
-EXPOSE 3000
-ENV HOST=0.0.0.0 PORT=3000
+EXPOSE 26712
+ENV HOST=0.0.0.0 PORT=26712
 CMD ["node", "dist/server.js"]
