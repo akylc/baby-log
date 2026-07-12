@@ -1,8 +1,5 @@
 node_modules
 **/node_modules
-dist
-backend/dist
-frontend/dist
 .git
 .gitignore
 .workbuddy
@@ -12,3 +9,15 @@ backend/data
 uploads
 Dockerfile
 .dockerignore
+# 构建已在外部完成（pnpm build -> backend/dist），源码无需进入镜像构建上下文，仅保留 backend/dist
+backend/src
+frontend
+pnpm-workspace.yaml
+pnpm-lock.yaml
+package.json
+backend/package.json
+frontend/package.json
+*.config.ts
+*.config.mjs
+*.config.js
+tsconfig*.json

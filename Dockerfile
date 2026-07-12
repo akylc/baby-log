@@ -1,29 +1,18 @@
-# ---- 构建阶段：安装依赖并打包前后端，产出自包含的 backend/dist ----
-FROM node:24-alpine AS build
+# ---- 运行阶段：仅使用外部已打包的自包含产物 backend/dist ----
+# 构建（pnpm install && pnpm build）在宿主机或 CI 完成，
+# 这里只把纯 JS 的 backend/dist 复制进镜像，无需任何原生编译/依赖安装。
+FROM node:24-alpine
+
 WORKDIR /app
 
-# 启用仓库约定的 pnpm
-RUN corepack enable
+# server.js 已通过 tsup 内联所有运行时依赖；
+# node:sqlite 随 Node 24 内置，无需 npm install；前端静态产物在 dist/public。
+COPY backend/dist ./dist
 
-# 先复制依赖清单，利用 Docker 层缓存
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* .npmrc* ./
-COPY backend/package.json backend/package.json
-COPY frontend/package.json frontend/package.json
-RUN pnpm install
-
-# 复制全部源码并构建
-# 产物 backend/dist 已自包含：依赖经 tsup 内联进 server.js，前端静态在 dist/public
-COPY . .
-RUN pnpm build
-
-# ---- 运行阶段：仅需纯 JS 的 backend/dist，无需任何原生编译 ----
-FROM node:24-alpine AS runtime
-WORKDIR /app
-
-# server.js 已内联所有运行时依赖；node:sqlite 随 Node 24 内置，无需 npm install
-COPY --from=build /app/backend/dist ./dist
-# 数据/上传目录运行时由应用自动创建，这里建好占位以便挂载卷
+# 数据库(/app/data/momentlog.db)与上传文件(/app/uploads)需持久化，
+# 声明为卷，运行时用 -v 挂载到宿主机，否则容器删除后数据丢失。
 RUN mkdir -p /app/data /app/uploads
+VOLUME ["/app/data", "/app/uploads"]
 
 EXPOSE 3000
 ENV HOST=0.0.0.0 PORT=3000
