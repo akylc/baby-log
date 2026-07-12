@@ -117,7 +117,7 @@
 
       <div class="field">
         <label>时间</label>
-        <n-date-picker v-model:value="occurredTs" type="datetime" format="yyyy-MM-dd HH:mm" />
+        <n-date-picker v-model:value="occurredTs" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
       </div>
       <div class="field">
         <label>备注（可选）</label>
@@ -149,7 +149,7 @@ import { tsToIso } from '@/utils/time'
 const router = useRouter()
 const message = useMessage()
 const babyStore = useBabyStore()
-const { baby } = storeToRefs(babyStore)
+const { currentBaby } = storeToRefs(babyStore)
 
 function goHome() {
   router.replace('/')
@@ -220,7 +220,7 @@ function deleteHist(key: string, val: string) {
 
 onMounted(async () => {
   // 记录页可能是首屏（如在 /record 刷新），主动拉取宝宝，避免误判"未添加宝宝"
-  if (!baby.value) {
+  if (!currentBaby.value) {
     try {
       await babyStore.fetch()
     } catch {
@@ -230,7 +230,7 @@ onMounted(async () => {
 })
 
 async function submit() {
-  if (!baby.value) {
+  if (!currentBaby.value) {
     // 兜底：提交前再确认一次服务端是否已有宝宝
     try {
       await babyStore.fetch()
@@ -238,7 +238,7 @@ async function submit() {
       /* ignore */
     }
   }
-  if (!baby.value) {
+  if (!currentBaby.value) {
     message.warning('请先在「我的」创建宝宝')
     router.push('/baby')
     return
@@ -253,7 +253,7 @@ async function submit() {
       }
       if (leftDuration.value) recordHist('breast_left', leftDuration.value)
       if (rightDuration.value) recordHist('breast_right', rightDuration.value)
-      await createFeeding({ type: 'breast', left_duration_min: leftDuration.value, right_duration_min: rightDuration.value, note: note.value || null, occurred_at: occurredAt.value })
+      await createFeeding({ babyId: currentBaby.value!.id, type: 'breast', left_duration_min: leftDuration.value, right_duration_min: rightDuration.value, note: note.value || null, occurred_at: occurredAt.value })
     } else if (type.value === 'formula') {
       if (!amount.value || amount.value <= 0) {
         message.warning('请填写奶量')
@@ -261,7 +261,7 @@ async function submit() {
         return
       }
       recordHist('milk_amount', amount.value)
-      await createFeeding({ type: 'formula', amount_ml: amount.value, note: note.value || null, occurred_at: occurredAt.value })
+      await createFeeding({ babyId: currentBaby.value!.id, type: 'formula', amount_ml: amount.value, note: note.value || null, occurred_at: occurredAt.value })
     } else if (type.value === 'bottle') {
       if (!amount.value || amount.value <= 0) {
         message.warning('请填写奶量')
@@ -269,7 +269,7 @@ async function submit() {
         return
       }
       recordHist('milk_amount', amount.value)
-      await createFeeding({ type: 'bottle', amount_ml: amount.value, note: note.value || null, occurred_at: occurredAt.value })
+      await createFeeding({ babyId: currentBaby.value!.id, type: 'bottle', amount_ml: amount.value, note: note.value || null, occurred_at: occurredAt.value })
     } else if (type.value === 'food') {
       if (!foodName.value || !foodName.value.trim()) {
         message.warning('请填写辅食名称')
@@ -277,7 +277,7 @@ async function submit() {
         return
       }
       recordHist('food_name', foodName.value.trim())
-      await createFeeding({ type: 'food', food_name: foodName.value.trim(), note: note.value || null, occurred_at: occurredAt.value })
+      await createFeeding({ babyId: currentBaby.value!.id, type: 'food', food_name: foodName.value.trim(), note: note.value || null, occurred_at: occurredAt.value })
     } else if (type.value === 'sleep') {
       if (!duration.value || duration.value <= 0) {
         message.warning('请填写睡眠时长')
@@ -285,9 +285,9 @@ async function submit() {
         return
       }
       recordHist('sleep_duration', duration.value)
-      await createSleep({ duration_min: duration.value, note: note.value || null, occurred_at: occurredAt.value })
+      await createSleep({ babyId: currentBaby.value!.id, duration_min: duration.value, note: note.value || null, occurred_at: occurredAt.value })
     } else if (type.value === 'diaper') {
-      await createDiaper({ type: diaperType.value, note: note.value || null, occurred_at: occurredAt.value })
+      await createDiaper({ babyId: currentBaby.value!.id, type: diaperType.value, note: note.value || null, occurred_at: occurredAt.value })
     }
     message.success('已记录 🎉')
     router.replace('/')

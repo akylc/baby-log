@@ -43,9 +43,9 @@ const feedingRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/api/feedings', async (req) => {
     const uid = (req as any).userId as number
-    const baby = getBabyByUser(uid)
-    if (!baby) return ok([])
     const q = req.query as any
+    const baby = getBabyByUser(uid, q?.babyId ? Number(q.babyId) : undefined)
+    if (!baby) return ok([])
     const { start, end } = q?.from && q?.to ? rangeFromTo(q.from, q.to) : dateRange(q?.date)
     const rows = db.prepare(
       'SELECT * FROM feedings WHERE baby_id=? AND occurred_at >= ? AND occurred_at < ? ORDER BY occurred_at DESC',
@@ -55,7 +55,8 @@ const feedingRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/api/feedings/last', async (req) => {
     const uid = (req as any).userId as number
-    const baby = getBabyByUser(uid)
+    const q = req.query as any
+    const baby = getBabyByUser(uid, q?.babyId ? Number(q.babyId) : undefined)
     if (!baby) return ok(null)
     const row = db.prepare(
       'SELECT * FROM feedings WHERE baby_id=? ORDER BY occurred_at DESC, id DESC LIMIT 1',

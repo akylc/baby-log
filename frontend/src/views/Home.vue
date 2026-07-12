@@ -1,10 +1,10 @@
 <template>
   <div class="home">
     <header class="hd">
-      <div class="who" role="button" tabindex="0" @click="goBaby" @keyup.enter="goBaby">
+      <div class="who" role="button" tabindex="0" @click="openSwitch" @keyup.enter="openSwitch">
         <div class="avatar">👶</div>
         <div>
-          <div class="name">{{ baby?.name || '未设置宝宝' }}</div>
+          <div class="name">{{ currentBaby?.name || '未设置宝宝' }}</div>
         </div>
         <span class="who-arrow">›</span>
       </div>
@@ -32,7 +32,7 @@
       />
     </n-popover>
 
-    <section class="stats" v-if="baby">
+    <section class="stats" v-if="currentBaby">
       <div class="stat">
         <div class="num">{{ stats.total_milk_ml }}<small>ml</small></div>
         <div class="lbl">{{ milkLabel }}</div>
@@ -55,7 +55,7 @@
       </div>
     </section>
 
-    <n-empty v-if="!baby" description="还没创建宝宝" class="empty">
+    <n-empty v-if="!currentBaby" description="还没创建宝宝" class="empty">
       <template #extra>
         <n-button type="primary" @click="goBaby">去「我的」创建</n-button>
       </template>
@@ -85,6 +85,77 @@
     <button class="fab" type="button" aria-label="记录" @click="goRecord">
       <span class="fab-plus">＋</span>
     </button>
+
+    <!-- 切换宝宝弹框 -->
+    <div class="sheet-mask" v-if="switchShow" @click="switchShow = false">
+      <div class="sheet switch-sheet" @click.stop>
+        <div class="sheet-hd">
+          <span>切换宝宝</span>
+          <button class="sheet-x" type="button" @click="switchShow = false" aria-label="关闭">×</button>
+        </div>
+        <div class="sheet-body switch-body">
+          <div v-if="babies.length === 0" class="no-data">还没有宝宝，先添加一个吧</div>
+          <button
+            v-for="b in babies"
+            :key="b.id"
+            type="button"
+            class="baby-row"
+            :class="{ active: b.id === currentBaby?.id }"
+            @click="pickBaby(b.id)"
+          >
+            <div class="avatar sm">👶</div>
+            <div class="baby-meta">
+              <div class="baby-name">{{ b.name }}</div>
+              <div class="baby-gender">{{ genderLabel(b.gender) }}</div>
+            </div>
+            <span v-if="b.id === currentBaby?.id" class="cur-tag">当前</span>
+            <button class="del-baby" type="button" aria-label="删除宝宝" @click.stop="removeBaby(b.id)">🗑</button>
+          </button>
+
+          <div v-if="adding" class="add-form">
+            <div class="ef">
+              <label>宝宝名字</label>
+              <n-input v-model:value="addName" placeholder="如 小葡萄" />
+            </div>
+            <div class="ef">
+              <label>生日</label>
+              <n-date-picker
+                v-model:value="addBirthdayTs"
+                type="date"
+                format="yyyy-MM-dd"
+                clearable
+                :is-date-disabled="disableFutureDate"
+                input-readonly
+              />
+            </div>
+            <div class="ef">
+              <label>性别</label>
+              <div class="seg">
+                <button
+                  v-for="o in genderOpts"
+                  :key="o.value"
+                  :class="['seg-btn', { active: addGender === o.value }]"
+                  type="button"
+                  @click="addGender = o.value"
+                >
+                  {{ o.label }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="switch-actions">
+          <n-button v-if="!adding" block size="large" @click="adding = true">
+            {{ babies.length ? '＋ 添加宝宝' : '＋ 创建第一个宝宝' }}
+          </n-button>
+          <template v-else>
+            <n-button type="primary" block size="large" :loading="addLoading" @click="confirmAdd">保存</n-button>
+            <n-button block @click="adding = false">取消</n-button>
+          </template>
+          <n-button block tertiary @click="goBaby">宝宝管理 / 我的</n-button>
+        </div>
+      </div>
+    </div>
 
     <!-- 编辑记录弹层 -->
     <div class="sheet-mask" v-if="editShow" @click="editShow = false">
@@ -145,7 +216,7 @@
 
           <div class="ef">
             <label>时间</label>
-            <n-date-picker v-model:value="eTs" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" />
+            <n-date-picker v-model:value="eTs" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
           </div>
           <div class="ef">
             <label>备注（可选）</label>
@@ -192,12 +263,13 @@ import { listFeedings, updateFeeding, deleteFeeding, type Feeding } from '@/api/
 import { listSleeps, updateSleep, deleteSleep, type Sleep } from '@/api/sleeps'
 import { listDiapers, updateDiaper, deleteDiaper, type Diaper } from '@/api/diapers'
 import { formatTime, tsToIso, isoToTs } from '@/utils/time'
+import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
 
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
 const babyStore = useBabyStore()
-const { baby } = storeToRefs(babyStore)
+const { currentBaby, babies } = storeToRefs(babyStore)
 
 const today = todayStr()
 // 日期切换：按选中日期查看历史数据
@@ -249,6 +321,12 @@ watch(selectedTs, (ts) => {
   selectedDate.value = dateStr(ts)
   refresh()
 })
+watch(
+  () => currentBaby.value?.id,
+  (id, prev) => {
+    if (id != null && id !== prev) refresh()
+  },
+)
 function onPickDate() {
   datePop.value = false
 }
@@ -270,14 +348,15 @@ async function refresh() {
     // 以选中日期为窗口最末一天，向前取 6 天，共近 7 天
     const fromDate = shiftDateStr(selectedDate.value, -6)
     const prevDate = shiftDateStr(fromDate, -1) // 前一天（用于最早项跨天「距上次」）
+    const bid = currentBaby.value?.id
     const [s, f, sl, d, pf, ps, pd] = await Promise.all([
-      getStats(selectedDate.value),
-      listFeedings({ from: fromDate, to: selectedDate.value }),
-      listSleeps({ from: fromDate, to: selectedDate.value }),
-      listDiapers({ from: fromDate, to: selectedDate.value }),
-      listFeedings({ date: prevDate }),
-      listSleeps({ date: prevDate }),
-      listDiapers({ date: prevDate }),
+      getStats(selectedDate.value, bid),
+      listFeedings({ from: fromDate, to: selectedDate.value, babyId: bid }),
+      listSleeps({ from: fromDate, to: selectedDate.value, babyId: bid }),
+      listDiapers({ from: fromDate, to: selectedDate.value, babyId: bid }),
+      listFeedings({ date: prevDate, babyId: bid }),
+      listSleeps({ date: prevDate, babyId: bid }),
+      listDiapers({ date: prevDate, babyId: bid }),
     ])
     stats.value = s
     feedings.value = f
@@ -392,12 +471,84 @@ function fmtGap(min: number): string {
   return `${m}分钟`
 }
 
+const switchShow = ref(false)
+const adding = ref(false)
+const addName = ref('')
+const addBirthdayTs = ref<number | null>(null)
+const addGender = ref<'male' | 'female' | 'unknown'>('unknown')
+const addLoading = ref(false)
+const genderOpts = [
+  { value: 'male', label: '男' },
+  { value: 'female', label: '女' },
+  { value: 'unknown', label: '未知' },
+]
+function genderLabel(g: string): string {
+  return ({ male: '男', female: '女', unknown: '未知' } as Record<string, string>)[g] || '未知'
+}
+function fmtDate(ts: number): string {
+  const d = new Date(ts)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+function openSwitch() {
+  switchShow.value = true
+}
+function pickBaby(id: number) {
+  babyStore.selectBaby(id)
+  switchShow.value = false
+}
 function goBaby() {
   router.push('/baby')
 }
-
 function goRecord() {
   router.push('/record')
+}
+async function confirmAdd() {
+  if (!addName.value.trim()) {
+    message.warning('请填写宝宝名字')
+    return
+  }
+  if (isBirthdayInFuture(addBirthdayTs.value)) {
+    message.warning('生日不能晚于今天')
+    return
+  }
+  addLoading.value = true
+  try {
+    await babyStore.add({
+      name: addName.value.trim(),
+      birthday: addBirthdayTs.value ? fmtDate(addBirthdayTs.value) : null,
+      gender: addGender.value,
+    })
+    message.success('已添加')
+    adding.value = false
+    addName.value = ''
+    addBirthdayTs.value = null
+    addGender.value = 'unknown'
+    switchShow.value = false
+  } catch (e: any) {
+    message.error(e?.message || '添加失败')
+  } finally {
+    addLoading.value = false
+  }
+}
+function removeBaby(id: number) {
+  const b = babies.value.find((x) => x.id === id)
+  dialog.warning({
+    title: '删除宝宝',
+    content: `确定删除「${b?.name || '该宝宝'}」吗？该宝宝的所有记录也会一并删除，且无法恢复。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    type: 'error',
+    onPositiveClick: async () => {
+      try {
+        await babyStore.remove(id)
+        message.success('已删除')
+        if (babies.value.length === 0) switchShow.value = false
+      } catch (e: any) {
+        message.error(e?.message || '删除失败')
+      }
+    },
+  })
 }
 
 // ---------- 首页记录列表：点击编辑 ----------
@@ -873,5 +1024,95 @@ onMounted(refresh)
   border-color: var(--primary);
   color: var(--primary-deep);
   font-weight: 600;
+}
+.switch-sheet {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.switch-body {
+  margin-bottom: 8px;
+}
+.baby-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+.baby-row.active {
+  border-color: var(--primary);
+  background: var(--card-pink);
+}
+.avatar.sm {
+  width: 38px;
+  height: 38px;
+  font-size: 20px;
+  border-radius: 50%;
+  background: var(--avatar-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.baby-meta {
+  flex: 1;
+  min-width: 0;
+}
+.baby-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.baby-gender {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.cur-tag {
+  font-size: 11px;
+  color: var(--primary-deep);
+  background: #fff;
+  border-radius: 8px;
+  padding: 1px 8px;
+}
+.del-baby {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255, 77, 79, 0.12);
+  font-size: 16px;
+  cursor: pointer;
+  flex: none;
+  transition: background 0.15s ease;
+}
+.del-baby:hover {
+  background: rgba(255, 77, 79, 0.24);
+}
+.del-baby:active {
+  background: rgba(255, 77, 79, 0.34);
+}
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 8px;
+}
+.switch-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
 }
 </style>

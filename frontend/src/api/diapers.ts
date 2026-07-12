@@ -10,17 +10,18 @@ export interface Diaper {
   occurred_at: string
 }
 
-export function createDiaper(p: { type: DiaperType; note?: string | null; occurred_at?: string }) {
+export function createDiaper(p: { type: DiaperType; note?: string | null; occurred_at?: string; babyId?: number }) {
   return post<Diaper>('/api/diapers', p)
 }
 
-export function listDiapers(opts?: { date?: string; from?: string; to?: string }) {
-  const q: Record<string, string> = {}
+export function listDiapers(opts?: { date?: string; from?: string; to?: string; babyId?: number }) {
+  const q: Record<string, any> = {}
   if (opts?.date) q.date = opts.date
   else if (opts?.from && opts?.to) {
     q.from = opts.from
     q.to = opts.to
   }
+  if (opts?.babyId != null) q.babyId = opts.babyId
   return get<Diaper[]>('/api/diapers', Object.keys(q).length ? q : undefined)
 }
 

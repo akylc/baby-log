@@ -8,6 +8,9 @@ export interface DayStats {
   diaper_count: number
 }
 
-export function getStats(date?: string) {
-  return get<DayStats>('/api/stats', date ? { date } : undefined)
+export function getStats(date?: string, babyId?: number) {
+  const q: Record<string, any> = {}
+  if (date) q.date = date
+  if (babyId != null) q.babyId = babyId
+  return get<DayStats>('/api/stats', Object.keys(q).length ? q : undefined)
 }

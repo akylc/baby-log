@@ -63,3 +63,12 @@ html.dark {
   --login-top: #2a1f26;
   --login-bot: #0f1013;
 }
+
+/* 修复 iOS Safari 点击输入框自动放大页面：
+   输入框 computed font-size < 16px 时聚焦会触发系统缩放，
+   强制所有输入元素字号 ≥16px（不影响用户双指缩放，比禁用缩放更友好）。 */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}

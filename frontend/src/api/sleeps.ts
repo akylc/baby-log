@@ -8,17 +8,18 @@ export interface Sleep {
   occurred_at: string
 }
 
-export function createSleep(p: { duration_min: number; note?: string | null; occurred_at?: string }) {
+export function createSleep(p: { duration_min: number; note?: string | null; occurred_at?: string; babyId?: number }) {
   return post<Sleep>('/api/sleeps', p)
 }
 
-export function listSleeps(opts?: { date?: string; from?: string; to?: string }) {
-  const q: Record<string, string> = {}
+export function listSleeps(opts?: { date?: string; from?: string; to?: string; babyId?: number }) {
+  const q: Record<string, any> = {}
   if (opts?.date) q.date = opts.date
   else if (opts?.from && opts?.to) {
     q.from = opts.from
     q.to = opts.to
   }
+  if (opts?.babyId != null) q.babyId = opts.babyId
   return get<Sleep[]>('/api/sleeps', Object.keys(q).length ? q : undefined)
 }
 
