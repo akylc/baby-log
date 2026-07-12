@@ -4,7 +4,12 @@
       <n-dialog-provider>
         <div class="app-shell">
           <main class="page-area">
-            <router-view />
+            <router-view v-slot="{ Component }">
+              <!-- 只缓存首页 Home：返回时不重建组件（列表不闪空），由 onActivated 触发刷新 -->
+              <keep-alive include="Home">
+                <component :is="Component" />
+              </keep-alive>
+            </router-view>
           </main>
         </div>
       </n-dialog-provider>
@@ -66,7 +71,10 @@ const themeOverrides = computed(() => {
 .app-shell {
   max-width: 480px;
   margin: 0 auto;
+  /* iOS Safari 上 100vh 会包含地址栏背后的区域，导致比可见区高、整页出现滚动条；
+     改用 100dvh（动态视口）贴合真实可见高度，100vh 仅作旧浏览器兜底 */
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg);

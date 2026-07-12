@@ -8,6 +8,9 @@ body,
   margin: 0;
   padding: 0;
   height: 100%;
+  /* 双保险：即使子元素偶有溢出也不让整页出现滚动条；
+     页面内的滚动由 .page-area（overflow-y:auto）内部承载 */
+  overflow: hidden;
 }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;

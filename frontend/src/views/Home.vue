@@ -263,7 +263,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { storeToRefs } from 'pinia'
@@ -275,6 +275,9 @@ import { listDiapers, updateDiaper, deleteDiaper, type Diaper } from '@/api/diap
 import { formatClock, tsToIso, isoToTs } from '@/utils/time'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
 import { useRevealRefresh } from '@/utils/reveal'
+
+// 供 <keep-alive include="Home"> 精确匹配缓存
+defineOptions({ name: 'Home' })
 
 const router = useRouter()
 const message = useMessage()
@@ -744,6 +747,17 @@ function todayStr(): string {
 }
 
 onMounted(refresh)
+// 从其他页面返回（keep-alive 重新激活）时刷新数据：
+// 缓存的 DOM 仍在，列表不会闪空；同时拉取最新数据更新视图。
+// 首次挂载时 onActivated 也会触发一次，用 activatedOnce 跳过（onMounted 已加载）。
+let activatedOnce = false
+onActivated(() => {
+  if (!activatedOnce) {
+    activatedOnce = true
+    return
+  }
+  refresh()
+})
 // 从后台切回前台时刷新当前页面
 useRevealRefresh(refresh)
 </script>

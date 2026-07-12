@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 
 // 仅在页面从「后台/隐藏」恢复为「前台/可见」时触发一次
 const EVENT = 'app:reveal'
@@ -33,14 +33,21 @@ function ensureInstalled() {
 
 /**
  * 注册「页面从后台切回前台」时的刷新回调。
- * 回调仅在组件挂载期间生效，组件卸载时自动注销，
- * 因此天然只作用于当前停留的页面。
+ * - 普通组件：挂载时生效、卸载时注销（只作用于当前停留页面）。
+ * - keep-alive 组件：不卸载，只在激活/失活间切换，因此监听在
+ *   激活时挂载、失活时注销，确保只刷新「当前停留」的页面，
+ *   不会让所有被缓存页面在回前台时一起刷新。
  */
 export function useRevealRefresh(cb: () => void) {
-  onMounted(() => {
+  const handler = () => cb()
+  const add = () => {
     ensureInstalled()
-    const handler = () => cb()
     window.addEventListener(EVENT, handler)
-    onUnmounted(() => window.removeEventListener(EVENT, handler))
-  })
+  }
+  const remove = () => window.removeEventListener(EVENT, handler)
+  // 同引用重复 add/remove 幂等，避免首次挂载 onMounted+onActivated 双注册
+  onMounted(add)
+  onUnmounted(remove)
+  onActivated(add)
+  onDeactivated(remove)
 }
