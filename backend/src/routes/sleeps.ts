@@ -29,12 +29,12 @@ const sleepRoutes: FastifyPluginAsync = async (fastify) => {
     return ok(db.prepare('SELECT * FROM sleeps WHERE id=?').get(Number(info.lastInsertRowid)))
   })
 
-  fastify.get('/api/sleeps', async (req) => {
+  fastify.post('/api/sleeps/list', async (req) => {
     const uid = (req as any).userId as number
-    const q = req.query as any
-    const baby = getBabyByUser(uid, q?.babyId ? Number(q.babyId) : undefined)
+    const b = req.body as any
+    const baby = getBabyByUser(uid, b?.babyId ? Number(b.babyId) : undefined)
     if (!baby) return ok([])
-    const { start, end } = q?.from && q?.to ? rangeFromTo(q.from, q.to) : dateRange(q?.date)
+    const { start, end } = b?.from && b?.to ? rangeFromTo(b.from, b.to) : dateRange(b?.date)
     const rows = db.prepare(
       'SELECT * FROM sleeps WHERE baby_id=? AND occurred_at >= ? AND occurred_at < ? ORDER BY occurred_at DESC',
     ).all(baby.id, start, end)

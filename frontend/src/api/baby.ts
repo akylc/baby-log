@@ -1,4 +1,4 @@
-import { post, get, put, del } from './client'
+import { post, put, del } from './client'
 
 export interface Baby {
   id: number
@@ -10,7 +10,7 @@ export interface Baby {
 }
 
 export function getBabies() {
-  return get<Baby[]>('/api/babies')
+  return post<Baby[]>('/api/babies', {})
 }
 
 export function addBaby(payload: { name: string; birthday?: string | null; gender?: string }) {

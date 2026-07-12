@@ -1,4 +1,4 @@
-import { post, get, put, del } from './client'
+import { post, put, del } from './client'
 
 export interface Sleep {
   id: number
@@ -22,14 +22,7 @@ export function createSleep(p: {
 }
 
 export function listSleeps(opts?: { date?: string; from?: string; to?: string; babyId?: number }) {
-  const q: Record<string, any> = {}
-  if (opts?.date) q.date = opts.date
-  else if (opts?.from && opts?.to) {
-    q.from = opts.from
-    q.to = opts.to
-  }
-  if (opts?.babyId != null) q.babyId = opts.babyId
-  return get<Sleep[]>('/api/sleeps', Object.keys(q).length ? q : undefined)
+  return post<Sleep[]>('/api/sleeps/list', opts || {})
 }
 
 export function updateSleep(

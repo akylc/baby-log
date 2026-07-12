@@ -18,7 +18,7 @@ function checkBirthday(birthday: unknown): string | null {
 }
 
 const babyRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/api/babies', async (req) => {
+  fastify.post('/api/babies', async (req) => {
     const uid = (req as any).userId as number
     return ok(db.prepare('SELECT * FROM babies WHERE user_id=? ORDER BY id ASC').all(uid))
   })

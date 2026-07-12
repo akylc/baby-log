@@ -13,7 +13,7 @@ export function clearToken(): void {
 }
 
 // 统一响应结构：{ code, data, message }
-// 约定：写入类接口 POST（参数放 body）；查询类接口 GET（参数放 query）
+// 约定：所有请求均用 POST（参数放 body）；PUT/DELETE 用于更新/删除
 const http = axios.create({
   baseURL: '/',
   timeout: 15000,

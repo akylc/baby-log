@@ -41,22 +41,22 @@ const feedingRoutes: FastifyPluginAsync = async (fastify) => {
     return ok(db.prepare('SELECT * FROM feedings WHERE id=?').get(Number(info.lastInsertRowid)))
   })
 
-  fastify.get('/api/feedings', async (req) => {
+  fastify.post('/api/feedings/list', async (req) => {
     const uid = (req as any).userId as number
-    const q = req.query as any
-    const baby = getBabyByUser(uid, q?.babyId ? Number(q.babyId) : undefined)
+    const b = req.body as any
+    const baby = getBabyByUser(uid, b?.babyId ? Number(b.babyId) : undefined)
     if (!baby) return ok([])
-    const { start, end } = q?.from && q?.to ? rangeFromTo(q.from, q.to) : dateRange(q?.date)
+    const { start, end } = b?.from && b?.to ? rangeFromTo(b.from, b.to) : dateRange(b?.date)
     const rows = db.prepare(
       'SELECT * FROM feedings WHERE baby_id=? AND occurred_at >= ? AND occurred_at < ? ORDER BY occurred_at DESC',
     ).all(baby.id, start, end)
     return ok(rows)
   })
 
-  fastify.get('/api/feedings/last', async (req) => {
+  fastify.post('/api/feedings/last', async (req) => {
     const uid = (req as any).userId as number
-    const q = req.query as any
-    const baby = getBabyByUser(uid, q?.babyId ? Number(q.babyId) : undefined)
+    const b = req.body as any
+    const baby = getBabyByUser(uid, b?.babyId ? Number(b.babyId) : undefined)
     if (!baby) return ok(null)
     const row = db.prepare(
       'SELECT * FROM feedings WHERE baby_id=? ORDER BY occurred_at DESC, id DESC LIMIT 1',

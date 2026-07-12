@@ -1,4 +1,4 @@
-import { get } from './client'
+import { post } from './client'
 
 export interface DayStats {
   total_milk_ml: number
@@ -9,8 +9,5 @@ export interface DayStats {
 }
 
 export function getStats(date?: string, babyId?: number) {
-  const q: Record<string, any> = {}
-  if (date) q.date = date
-  if (babyId != null) q.babyId = babyId
-  return get<DayStats>('/api/stats', Object.keys(q).length ? q : undefined)
+  return post<DayStats>('/api/stats', { date, babyId })
 }

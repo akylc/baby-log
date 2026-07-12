@@ -1,4 +1,4 @@
-import { post, get, put, del } from './client'
+import { post, put, del } from './client'
 
 export type FeedType = 'breast' | 'formula' | 'food' | 'bottle'
 
@@ -32,18 +32,11 @@ export function createFeeding(p: {
 }
 
 export function listFeedings(opts?: { date?: string; from?: string; to?: string; babyId?: number }) {
-  const q: Record<string, any> = {}
-  if (opts?.date) q.date = opts.date
-  else if (opts?.from && opts?.to) {
-    q.from = opts.from
-    q.to = opts.to
-  }
-  if (opts?.babyId != null) q.babyId = opts.babyId
-  return get<Feeding[]>('/api/feedings', Object.keys(q).length ? q : undefined)
+  return post<Feeding[]>('/api/feedings/list', opts || {})
 }
 
 export function getLastFeeding(babyId?: number) {
-  return get<Feeding | null>('/api/feedings/last', babyId != null ? { babyId } : undefined)
+  return post<Feeding | null>('/api/feedings/last', babyId != null ? { babyId } : {})
 }
 
 export function updateFeeding(
