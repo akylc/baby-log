@@ -6,15 +6,19 @@
       <span style="width: 40px"></span>
     </header>
 
-    <div class="type-row">
+    <div class="type-row" ref="typeRowRef" :class="{ sorting: sortMode }">
       <button
-        v-for="t in types"
+        v-for="(t, i) in orderedTypes"
         :key="t.value"
-        :class="['type-btn', { active: type === t.value }]"
-        @click="type = t.value"
+        :ref="(el) => setChipRef(el, i)"
+        :class="['type-btn', { active: type === t.value, dragging: dragging === i }]"
+        :style="chipStyle(i)"
+        @click="selectType(t.value)"
       >
+        <span v-if="sortMode" class="grip" @pointerdown.stop="onChipPointerDown(i, $event)">⋮⋮⋮</span>
         <span class="ti">{{ t.icon }}</span>{{ t.label }}
       </button>
+      <button class="sort-toggle" type="button" @click="toggleSort">{{ sortMode ? '完成' : '排序' }}</button>
     </div>
 
     <section class="form">
@@ -177,7 +181,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, watch } from 'vue'
+import { ref, computed, onMounted, reactive, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { storeToRefs } from 'pinia'
@@ -231,6 +235,156 @@ watch(type, (v) => {
     /* 忽略存储异常 */
   }
 })
+
+// 类型选项顺序：支持「排序」模式下拖拽重排，顺序持久化到 localStorage
+const TYPE_VALUES = types.map((t) => t.value)
+function loadTypeOrder(): string[] {
+  try {
+    const raw = localStorage.getItem('ml_type_order')
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (
+        Array.isArray(arr) &&
+        arr.length === TYPE_VALUES.length &&
+        arr.every((v) => TYPE_VALUES.includes(v))
+      ) {
+        return arr
+      }
+    }
+  } catch {
+    /* 忽略存储异常 */
+  }
+  return TYPE_VALUES.slice()
+}
+const order = ref<string[]>(loadTypeOrder())
+const orderedTypes = computed(() => order.value.map((v) => types.find((t) => t.value === v)!).filter(Boolean))
+function saveTypeOrder() {
+  try {
+    localStorage.setItem('ml_type_order', JSON.stringify(order.value))
+  } catch {
+    /* 忽略存储异常 */
+  }
+}
+
+// 排序模式 + 拖拽重排（Pointer Events，鼠标/触摸通用）
+const sortMode = ref(false)
+const dragging = ref(-1)
+const dragDx = ref(0)
+const targetIndex = ref(-1)
+const chipEls: any[] = []
+const typeRowRef = ref<HTMLElement | null>(null)
+let pointerStartX = 0
+let initialScrollLeft = 0
+const snap = { gap: 8, dragW: 0 }
+
+function setChipRef(el: any, i: number) {
+  if (el) chipEls[i] = el
+}
+function selectType(v: RecType) {
+  if (sortMode.value) return // 排序模式下点击不切换类型
+  type.value = v
+}
+function toggleSort() {
+  if (sortMode.value) saveTypeOrder()
+  sortMode.value = !sortMode.value
+  if (!sortMode.value) {
+    dragging.value = -1
+    dragDx.value = 0
+    targetIndex.value = -1
+  }
+}
+function onChipPointerDown(i: number, e: PointerEvent) {
+  if (!sortMode.value) return
+  e.preventDefault()
+  dragging.value = i
+  dragDx.value = 0
+  targetIndex.value = i
+  pointerStartX = e.clientX
+  initialScrollLeft = typeRowRef.value?.scrollLeft || 0
+  const rect = chipEls[i].getBoundingClientRect()
+  snap.dragW = rect.width
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onPointerUp)
+}
+function onPointerMove(e: PointerEvent) {
+  // 计算 dx 时补偿容器滚动：被拖元素始终保持在手指位置下方
+  const scrollDelta = typeRowRef.value ? typeRowRef.value.scrollLeft - initialScrollLeft : 0
+  const dx = (e.clientX - pointerStartX) + scrollDelta
+  dragDx.value = dx
+
+  // 自动滚动：手指靠近边缘时让容器滚动，使溢出部分可见
+  if (typeRowRef.value) {
+    const rowRect = typeRowRef.value.getBoundingClientRect()
+    const edgeThreshold = 30
+    if (e.clientX < rowRect.left + edgeThreshold && typeRowRef.value.scrollLeft > 0) {
+      typeRowRef.value.scrollLeft -= 10
+    } else if (e.clientX > rowRect.right - edgeThreshold) {
+      typeRowRef.value.scrollLeft += 10
+    }
+  }
+
+  // 每帧从 DOM 读取实时位置（含 transform 偏移 + 容器滚动），避免静态 snap 过时
+  const liveRects = chipEls.map((el) => {
+    const r = el.getBoundingClientRect()
+    return { left: r.left, width: r.width, center: r.left + r.width / 2 }
+  })
+  if (!liveRects.length || dragging.value < 0 || dragging.value >= liveRects.length) return
+
+  const draggedCenter = liveRects[dragging.value].center
+  const others: { idx: number; center: number }[] = []
+  liveRects.forEach((r, idx) => {
+    if (idx !== dragging.value) others.push({ idx, center: r.center })
+  })
+  others.sort((a, b) => a.center - b.center)
+  let insertAt = others.length
+  for (let k = 0; k < others.length; k++) {
+    if (draggedCenter < others[k].center) {
+      insertAt = k
+      break
+    }
+  }
+  const newOrder = order.value.slice()
+  const [moved] = newOrder.splice(dragging.value, 1)
+  newOrder.splice(insertAt, 0, moved)
+  targetIndex.value = newOrder.indexOf(moved)
+}
+function onPointerUp() {
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerUp)
+  const from = dragging.value
+  const to = targetIndex.value
+  if (from !== -1 && to !== -1 && from !== to) {
+    const newOrder = order.value.slice()
+    const [moved] = newOrder.splice(from, 1)
+    newOrder.splice(to, 0, moved)
+    order.value = newOrder
+  }
+  dragging.value = -1
+  dragDx.value = 0
+  targetIndex.value = -1
+  saveTypeOrder()
+}
+function chipStyle(i: number): Record<string, string> {
+  if (!sortMode.value || dragging.value === -1) return {}
+  if (dragging.value === i) {
+    return { transform: `translateX(${dragDx.value}px)`, 'z-index': '10', position: 'relative' }
+  }
+  const d = dragging.value
+  const t = targetIndex.value
+  const inRange = d < t ? i > d && i <= t : i >= t && i < d
+  if (!inRange) return {}
+  const dir = d < t ? -1 : 1
+  const shift = dir * (snap.dragW + snap.gap)
+  return { transform: `translateX(${shift}px)` }
+}
+onBeforeUnmount(() => {
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerUp)
+})
+
 const diaperType = ref<'pee' | 'poo' | 'both'>('pee')
 const leftDuration = ref<number | null>(null)
 const rightDuration = ref<number | null>(null)
@@ -448,8 +602,59 @@ async function submit() {
   color: #fff;
   border-color: var(--primary);
 }
+.type-btn.active .grip {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.15);
+}
+.type-btn.active .grip:active {
+  background: rgba(255, 255, 255, 0.30);
+}
 .ti {
   font-size: 15px;
+}
+.type-row.sorting .type-btn {
+  transition: transform 0.18s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: default;
+}
+.type-row.sorting .type-btn.dragging {
+  transition: none;
+  cursor: grabbing;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  opacity: 0.95;
+}
+.grip {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1;
+  padding: 4px 3px;
+  margin-right: 4px;
+  margin-left: -6px;
+  border-radius: 6px;
+  background: var(--border-soft);
+  touch-action: none;
+  cursor: grab;
+  transition: background 0.15s;
+}
+.grip:active {
+  background: var(--border);
+}
+.sort-toggle {
+  flex: none;
+  border: 1px dashed var(--border);
+  background: transparent;
+  border-radius: 20px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.sort-toggle:active {
+  color: var(--primary-deep);
 }
 .form {
   display: flex;
