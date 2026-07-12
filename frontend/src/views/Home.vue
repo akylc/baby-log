@@ -87,6 +87,7 @@
           <div class="tl-time">{{ it.time }}</div>
         </div>
       </template>
+      <div class="build-info">构建于 {{ buildTime }} · v{{ appVersion }}</div>
     </section>
 
     <!-- 右下角悬浮记录按钮 -->
@@ -95,7 +96,8 @@
     </button>
 
     <!-- 切换宝宝弹框 -->
-    <div class="sheet-mask" v-if="switchShow" @click="switchShow = false">
+    <Transition name="sheet">
+      <div class="sheet-mask" v-if="switchShow" @click="switchShow = false">
       <div class="sheet switch-sheet" @click.stop>
         <div class="sheet-hd">
           <span>切换宝宝</span>
@@ -164,9 +166,11 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- 编辑记录弹层 -->
-    <div class="sheet-mask" v-if="editShow" @click="editShow = false">
+    <Transition name="sheet">
+      <div class="sheet-mask" v-if="editShow" @click="editShow = false">
       <div class="sheet" @click.stop>
         <div class="sheet-hd">
           <span>编辑记录</span>
@@ -265,6 +269,7 @@
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -281,6 +286,7 @@ import { listDiapers, updateDiaper, deleteDiaper, type Diaper } from '@/api/diap
 import { formatClock, tsToIso, isoToTs } from '@/utils/time'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
 import { useRevealRefresh } from '@/utils/reveal'
+import { APP_VERSION } from '@/build-info'
 
 // 供 <keep-alive include="Home"> 精确匹配缓存
 defineOptions({ name: 'Home' })
@@ -290,6 +296,10 @@ const message = useMessage()
 const dialog = useDialog()
 const babyStore = useBabyStore()
 const { currentBaby, babies } = storeToRefs(babyStore)
+
+// 版本与打包时间（构建时由 Vite define 注入 __BUILD_TIME__，见 vite.config.ts）
+const appVersion = APP_VERSION
+const buildTime = __BUILD_TIME__
 
 const today = todayStr()
 // 日期切换：按选中日期查看历史数据
@@ -955,6 +965,13 @@ useRevealRefresh(refresh)
   text-align: center;
   padding: 40px 0;
 }
+.build-info {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-4);
+  padding: 18px 0 calc(20px + env(safe-area-inset-bottom));
+  letter-spacing: 0.3px;
+}
 .tl-item {
   display: flex;
   align-items: center;
@@ -1065,15 +1082,23 @@ useRevealRefresh(refresh)
   background: var(--sheet-bg);
   border-radius: 16px 16px 0 0;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
-  animation: sheetUp 0.2s ease;
 }
-@keyframes sheetUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
+/* 弹框进出动画：由 Vue <Transition name="sheet"> 驱动（遮罩淡入淡出 + 面板从底部滑入滑出） */
+.sheet-enter-active,
+.sheet-leave-active {
+  transition: opacity 0.25s ease;
+}
+.sheet-enter-active .sheet,
+.sheet-leave-active .sheet {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sheet-enter-from,
+.sheet-leave-to {
+  opacity: 0;
+}
+.sheet-enter-from .sheet,
+.sheet-leave-to .sheet {
+  transform: translateY(100%);
 }
 .sheet-hd {
   display: flex;

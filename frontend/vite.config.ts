@@ -2,8 +2,19 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
+// 构建时自动生成「打包日期时间」（本地时区，YYYY-MM-DD HH:mm），
+// 通过 Vite define 注入为全局常量 __BUILD_TIME__，每次构建自动更新。
+function formatBuildTime(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export default defineConfig({
   plugins: [vue()],
+  define: {
+    __BUILD_TIME__: JSON.stringify(formatBuildTime()),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
