@@ -1,11 +1,12 @@
 <template>
   <div class="home">
     <header class="hd">
-      <div class="who">
+      <div class="who" role="button" tabindex="0" @click="goBaby" @keyup.enter="goBaby">
         <div class="avatar">👶</div>
         <div>
           <div class="name">{{ baby?.name || '未设置宝宝' }}</div>
         </div>
+        <span class="who-arrow">›</span>
       </div>
       <n-button text size="small" @click="refresh">刷新</n-button>
     </header>
@@ -62,7 +63,7 @@
 
     <section class="timeline" v-else>
       <div class="sec-title">📅 {{ viewingToday ? '近 7 天' : '近 7 天（截至 ' + selectedDateLabel + '）' }}</div>
-      <div v-if="timeline.length === 0" class="no-data">还没有记录，点底部「记录」开始吧 👇</div>
+      <div v-if="timeline.length === 0" class="no-data">还没有记录，点右下角「＋」开始吧 👉</div>
       <template v-for="grp in dayGroups" :key="grp.date">
         <div class="day-head">
           <span class="day-d">{{ grp.label }}</span>
@@ -79,6 +80,11 @@
         </div>
       </template>
     </section>
+
+    <!-- 右下角悬浮记录按钮 -->
+    <button class="fab" type="button" aria-label="记录" @click="goRecord">
+      <span class="fab-plus">＋</span>
+    </button>
 
     <!-- 编辑记录弹层 -->
     <div class="sheet-mask" v-if="editShow" @click="editShow = false">
@@ -390,6 +396,10 @@ function goBaby() {
   router.push('/baby')
 }
 
+function goRecord() {
+  router.push('/record')
+}
+
 // ---------- 首页记录列表：点击编辑 ----------
 const diaperOpts = [
   { value: 'pee', label: '尿' },
@@ -539,6 +549,21 @@ onMounted(refresh)
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 4px 8px 4px 4px;
+  margin: -4px 0;
+  transition: background 0.15s;
+  outline: none;
+}
+.who:active {
+  background: var(--card-pink);
+}
+.who-arrow {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-4);
+  margin-left: 2px;
 }
 .avatar {
   width: 44px;
@@ -715,6 +740,39 @@ onMounted(refresh)
   font-size: 12px;
   color: var(--text-4);
   flex: none;
+}
+.fab {
+  position: fixed;
+  right: calc(50% - 240px + 20px);
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #ff95b8, #f25c8a);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(242, 92, 138, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 40;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.fab:active {
+  transform: scale(0.92);
+  box-shadow: 0 3px 10px rgba(242, 92, 138, 0.4);
+}
+.fab-plus {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 300;
+  margin-top: -2px;
+}
+@media (max-width: 480px) {
+  .fab {
+    right: 20px;
+  }
 }
 .sheet-mask {
   position: fixed;

@@ -6,17 +6,6 @@
           <main class="page-area">
             <router-view />
           </main>
-          <nav v-if="showTab" class="tab-bar">
-            <router-link to="/" class="tab-item" :class="{ active: route.name === 'home' }">
-              <span class="ic">🏠</span><span class="lb">首页</span>
-            </router-link>
-            <router-link to="/record" class="tab-item" :class="{ active: route.name === 'record' }">
-              <span class="ic">➕</span><span class="lb">记录</span>
-            </router-link>
-            <router-link to="/baby" class="tab-item" :class="{ active: route.name === 'baby' }">
-              <span class="ic">👤</span><span class="lb">我的</span>
-            </router-link>
-          </nav>
         </div>
       </n-dialog-provider>
     </n-message-provider>
@@ -25,12 +14,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
 import { darkTheme, zhCN, dateZhCN } from 'naive-ui'
 import { isDark } from '@/utils/theme'
 
-const route = useRoute()
-const showTab = computed(() => route.name !== 'login')
 const uiTheme = computed(() => (isDark.value ? darkTheme : null))
 
 const themeOverrides = computed(() => {
@@ -93,30 +79,5 @@ const themeOverrides = computed(() => {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-}
-.tab-bar {
-  flex: none;
-  height: 58px;
-  display: flex;
-  border-top: 1px solid var(--border-soft);
-  background: var(--card);
-}
-.tab-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  text-decoration: none;
-  color: var(--text-3);
-  font-size: 11px;
-}
-.tab-item .ic {
-  font-size: 20px;
-  line-height: 1;
-}
-.tab-item.active {
-  color: var(--primary);
 }
 </style>

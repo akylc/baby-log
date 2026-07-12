@@ -1,9 +1,9 @@
 <template>
   <div class="record">
     <header class="hd">
-      <span style="width: 48px"></span>
+      <button class="back" type="button" aria-label="返回" @click="goHome">‹</button>
       <span class="title">记一笔</span>
-      <span style="width: 48px"></span>
+      <span style="width: 40px"></span>
     </header>
 
     <div class="type-row">
@@ -150,6 +150,10 @@ const router = useRouter()
 const message = useMessage()
 const babyStore = useBabyStore()
 const { baby } = storeToRefs(babyStore)
+
+function goHome() {
+  router.replace('/')
+}
 
 type RecType = 'breast' | 'formula' | 'food' | 'bottle' | 'sleep' | 'diaper'
 const types = [
@@ -308,6 +312,20 @@ async function submit() {
 .title {
   font-size: 16px;
   font-weight: 600;
+}
+.back {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: var(--text-1);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -8px;
 }
 .type-row {
   display: flex;

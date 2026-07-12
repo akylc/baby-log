@@ -1,9 +1,9 @@
 <template>
   <div class="baby">
     <header class="hd">
-      <span style="width: 48px"></span>
+      <button class="back" type="button" aria-label="返回" @click="goHome">‹</button>
       <span class="title">我的</span>
-      <span style="width: 48px"></span>
+      <span style="width: 40px"></span>
     </header>
 
     <div class="card">
@@ -57,6 +57,10 @@ const router = useRouter()
 const message = useMessage()
 const babyStore = useBabyStore()
 const auth = useAuthStore()
+
+function goHome() {
+  router.replace('/')
+}
 
 const genderOpts = [
   { value: 'male', label: '男' },
@@ -125,6 +129,20 @@ function logout() {
 .title {
   font-size: 16px;
   font-weight: 600;
+}
+.back {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: var(--text-1);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -8px;
 }
 .card {
   background: var(--card);
