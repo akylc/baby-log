@@ -14,7 +14,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true })
 fs.mkdirSync(DATA_DIR, { recursive: true })
 
 export const config = {
-  port: Number(process.env.PORT) || 3000,
+  port: Number(process.env.PORT) || 26712,
   host: process.env.HOST || '0.0.0.0',
   dbPath: path.join(DATA_DIR, 'momentlog.db'),
   jwtSecret: process.env.JWT_SECRET || 'momentlog-dev-secret-change-me',
