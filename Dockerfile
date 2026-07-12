@@ -9,10 +9,10 @@ WORKDIR /app
 # node:sqlite 随 Node 24 内置，无需 npm install；前端静态产物在 dist/public。
 COPY backend/dist ./dist
 
-# 数据库(/app/data/momentlog.db)与上传文件(/app/uploads)需持久化，
+# 数据库(/app/data/momentlog.db)需持久化，
 # 声明为卷，运行时用 -v 挂载到宿主机，否则容器删除后数据丢失。
-RUN mkdir -p /app/data /app/uploads
-VOLUME ["/app/data", "/app/uploads"]
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
 
 EXPOSE 26712
 ENV HOST=0.0.0.0 PORT=26712

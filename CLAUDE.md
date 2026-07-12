@@ -12,7 +12,7 @@
 ## 技术栈
 - **前端**：Vite + Vue 3 + TypeScript + Naive UI；别名 `@` → `src/`。
 - **后端**：Fastify + TypeScript + **node:sqlite**（Node 内置，无原生依赖）；用 tsup 打包为 CJS。
-- 全 POST 接口，统一前缀 `/api`；上传文件走 `/uploads`；SPA 由 `@fastify/static` 单端口托管（`dist/public`）。
+- 全 POST 接口，统一前缀 `/api`；SPA 由 `@fastify/static` 单端口托管（`dist/public`）。
 
 ## 目录结构
 ```
