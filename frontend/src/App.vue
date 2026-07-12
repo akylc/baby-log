@@ -73,6 +73,10 @@ const themeOverrides = computed(() => {
   position: relative;
   box-shadow: 0 0 24px rgba(0, 0, 0, 0.06);
   overflow: hidden;
+  /* iOS 添加到主屏幕（全屏）时，状态栏会覆盖页面顶部：
+     用安全区内边距把内容推到状态栏之下，避免重叠。 */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .page-area {
   flex: 1;
