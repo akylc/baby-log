@@ -91,6 +91,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRevealRefresh } from '@/utils/reveal'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { storeToRefs } from 'pinia'
@@ -149,11 +150,14 @@ function startAdd() {
   gender.value = 'unknown'
 }
 
-onMounted(async () => {
+async function load() {
   if (!auth.user) await auth.fetchMe()
   await babyStore.fetch()
   if (currentBaby.value) loadForm(currentBaby.value)
-})
+}
+onMounted(load)
+// 从后台切回前台时刷新当前页面
+useRevealRefresh(load)
 
 async function save() {
   if (!name.value.trim()) {

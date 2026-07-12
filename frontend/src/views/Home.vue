@@ -74,7 +74,9 @@
           <div class="tl-body">
             <div class="tl-title">{{ it.title }}</div>
             <div class="tl-sub" v-if="it.sub">{{ it.sub }}</div>
-            <div class="tl-gap" v-if="it.gap">{{ it.gap }}</div>
+            <div class="tl-gaps" v-if="it.gaps && it.gaps.length">
+              <span class="tl-gap" v-for="(g, gi) in it.gaps" :key="gi">{{ g }}</span>
+            </div>
           </div>
           <div class="tl-time">{{ it.time }}</div>
         </div>
@@ -270,8 +272,9 @@ import { getStats, type DayStats } from '@/api/stats'
 import { listFeedings, updateFeeding, deleteFeeding, type Feeding } from '@/api/feedings'
 import { listSleeps, updateSleep, deleteSleep, type Sleep } from '@/api/sleeps'
 import { listDiapers, updateDiaper, deleteDiaper, type Diaper } from '@/api/diapers'
-import { formatTime, tsToIso, isoToTs } from '@/utils/time'
+import { formatClock, tsToIso, isoToTs } from '@/utils/time'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
+import { useRevealRefresh } from '@/utils/reveal'
 
 const router = useRouter()
 const message = useMessage()
@@ -348,7 +351,7 @@ const stats = ref<DayStats>({
 const feedings = ref<Feeding[]>([])
 const sleeps = ref<Sleep[]>([])
 const diapers = ref<Diaper[]>([])
-const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gap?: string; kind: 'feeding' | 'sleep' | 'diaper'; id: number; raw: any }[]>([])
+const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: string[]; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any }[]>([])
 
 const refreshing = ref(false)
 
@@ -373,12 +376,15 @@ async function refresh() {
     feedings.value = f
     sleeps.value = sl
     diapers.value = d
-    // 前一天最后一条记录（7 天窗口之外，作为最早项的「距上次」下界）
-    const prevAll = [...pf, ...ps, ...pd]
-    const prevDayLast = prevAll.length
-      ? prevAll.reduce((m, r) => (r.occurred_at > m ? r.occurred_at : m), prevAll[0].occurred_at)
-      : null
-    buildTimeline(prevDayLast)
+    // 前一天各类型最后一条记录（7 天窗口之外，作为该类型最早项的「距上次」下界）
+    const prevDayLastByType: Record<string, string> = {}
+    const bump = (key: string, ts: string) => {
+      if (!prevDayLastByType[key] || ts > prevDayLastByType[key]) prevDayLastByType[key] = ts
+    }
+    pf.forEach((r) => bump(r.type, r.occurred_at))
+    ps.forEach((r) => bump('sleep', r.occurred_at))
+    pd.forEach((r) => bump('diaper', r.occurred_at))
+    buildTimeline(prevDayLastByType)
   } catch (e: any) {
     message.error(e?.message || '加载失败')
   } finally {
@@ -386,8 +392,8 @@ async function refresh() {
   }
 }
 
-function buildTimeline(prevDayLast: string | null) {
-  const items: { time: string; sortKey: string; icon: string; title: string; sub?: string }[] = []
+function buildTimeline(prevDayLastByType: Record<string, string>) {
+  const items: { time: string; sortKey: string; icon: string; title: string; sub?: string; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any; gaps: string[] }[] = []
   feedings.value.forEach((f) => {
     let icon = '🍼'
     let title = ''
@@ -407,37 +413,56 @@ function buildTimeline(prevDayLast: string | null) {
       icon = '🍚'
       title = `辅食 ${f.food_name || ''}`.trim()
     }
-    items.push({ time: formatTime(f.occurred_at), sortKey: f.occurred_at, icon, title, sub: f.note || undefined, kind: 'feeding', id: f.id, raw: f })
+    items.push({ time: formatClock(f.occurred_at), sortKey: f.occurred_at, icon, title, sub: f.note || undefined, kind: 'feeding', type: f.type, id: f.id, raw: f })
   })
   sleeps.value.forEach((s) => {
     const timeStr = s.sleep_start && s.sleep_end
-      ? `${formatTime(s.sleep_start)} → ${formatTime(s.sleep_end)}`
-      : formatTime(s.occurred_at)
+      ? `${formatClock(s.sleep_start)} → ${formatClock(s.sleep_end)}`
+      : formatClock(s.occurred_at)
     const title = s.duration_min > 0 ? `睡眠 ${s.duration_min}分钟` : '睡眠 · 进行中'
-    items.push({ time: timeStr, sortKey: s.occurred_at, icon: '😴', title, sub: s.note || undefined, kind: 'sleep', id: s.id, raw: s })
+    items.push({ time: timeStr, sortKey: s.occurred_at, icon: '😴', title, sub: s.note || undefined, kind: 'sleep', type: 'sleep', id: s.id, raw: s })
   })
   diapers.value.forEach((d) => {
     const map: Record<string, string> = { pee: '尿片', poo: '便便', both: '尿+便' }
-    items.push({ time: formatTime(d.occurred_at), sortKey: d.occurred_at, icon: '💩', title: map[d.type] || '换尿布', sub: d.note || undefined, kind: 'diaper', id: d.id, raw: d })
+    items.push({ time: formatClock(d.occurred_at), sortKey: d.occurred_at, icon: '💩', title: map[d.type] || '换尿布', sub: d.note || undefined, kind: 'diaper', type: 'diaper', id: d.id, raw: d })
   })
   items.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
   const now = Date.now()
-  // 「距上次」= 距时间上更早的记录（倒序数组中的下一项）；最新一条若是今天则显示「距现在」
-  timeline.value = items.map((it, i) => {
-    const cur = new Date(it.sortKey.replace(' ', 'T')).getTime()
-    let gap = ''
-    if (i === 0) {
-      if (it.sortKey.slice(0, 10) === today) gap = '距现在 ' + fmtGap(Math.max(0, Math.round((now - cur) / 60000)))
-    } else if (i < items.length - 1) {
-      const older = new Date(items[i + 1].sortKey.replace(' ', 'T')).getTime()
-      gap = '距上次 ' + fmtGap(Math.max(1, Math.round((cur - older) / 60000)))
-    } else if (prevDayLast) {
-      // 最早一项：用 7 天窗口前一天的最后记录作为「距上次」下界（跨天回溯）
-      const older = new Date(prevDayLast.replace(' ', 'T')).getTime()
-      gap = '距上次 ' + fmtGap(Math.max(1, Math.round((cur - older) / 60000)))
-    }
-    return { ...it, gap }
-  })
+  // 「距上次」改为「对应类型」的距上次：仅与同类型、时间上更早的记录比较
+  const typeLabel: Record<string, string> = {
+    breast: '母乳',
+    formula: '配方奶',
+    bottle: '瓶喂',
+    food: '辅食',
+    sleep: '睡眠',
+    diaper: '换尿布',
+  }
+  const byType: Record<string, typeof items> = {}
+  for (const it of items) (byType[it.type] ||= []).push(it)
+  for (const list of Object.values(byType)) {
+    const label = typeLabel[list[0].type] || '记录'
+    list.forEach((it, k) => {
+      const cur = new Date(it.sortKey.replace(' ', 'T')).getTime()
+      const gaps: string[] = []
+      // 距现在：仅同类型最新一条且为今天
+      if (k === 0 && it.sortKey.slice(0, 10) === today) {
+        gaps.push('距现在 ' + fmtGap(Math.max(0, Math.round((now - cur) / 60000))))
+      }
+      // 距上次：相对同类型时间上更早的一条（窗口内 list[k+1]，否则前一天 prevDayLastByType）
+      let olderTs: number | null = null
+      if (k < list.length - 1) {
+        olderTs = new Date(list[k + 1].sortKey.replace(' ', 'T')).getTime()
+      } else {
+        const prev = prevDayLastByType[it.type]
+        if (prev) olderTs = new Date(prev.replace(' ', 'T')).getTime()
+      }
+      if (olderTs != null) {
+        gaps.push('距上次' + label + ' ' + fmtGap(Math.max(1, Math.round((cur - olderTs) / 60000))))
+      }
+      it.gaps = gaps
+    })
+  }
+  timeline.value = items
 }
 
 // 按「日」分组（最新一天在前），每组含日期标签与当日小结
@@ -719,6 +744,8 @@ function todayStr(): string {
 }
 
 onMounted(refresh)
+// 从后台切回前台时刷新当前页面
+useRevealRefresh(refresh)
 </script>
 
 <style scoped>
@@ -913,6 +940,12 @@ onMounted(refresh)
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.tl-gaps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
 .tl-gap {
   display: inline-block;
   font-size: 11px;
@@ -920,7 +953,6 @@ onMounted(refresh)
   background: var(--card-pink);
   border-radius: 8px;
   padding: 1px 7px;
-  margin-top: 4px;
 }
 .tl-time {
   font-size: 12px;

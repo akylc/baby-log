@@ -6,6 +6,15 @@ export function formatTime(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// 仅返回时分（用于列表右侧时间）
+export function formatClock(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 // DatePicker(毫秒时间戳) -> 本地时区 ISO 字符串
 export function tsToIso(ts: number): string {
   const d = new Date(ts)

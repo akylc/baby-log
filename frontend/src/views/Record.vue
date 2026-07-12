@@ -176,6 +176,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive, watch, onBeforeUnmount } from 'vue'
+import { useRevealRefresh } from '@/utils/reveal'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { storeToRefs } from 'pinia'
@@ -471,7 +472,10 @@ function fillVal(key: string, val: string) {
   else if (key === 'food_name') foodName.value = val
 }
 
-onMounted(async () => {
+async function reload() {
+  // 切回前台：把记录时间重置为「此刻」（用户此刻才记录，避免停留在切后台前的时间）
+  occurredTs.value = Date.now()
+  if (type.value === 'sleep') sleepStart.value = Date.now()
   // 记录页可能是首屏（如在 /record 刷新），主动拉取宝宝，避免误判"未添加宝宝"
   if (!currentBaby.value) {
     try {
@@ -480,7 +484,10 @@ onMounted(async () => {
       /* 失败交给 submit 时再判断 */
     }
   }
-})
+}
+onMounted(reload)
+// 从后台切回前台时刷新当前页面
+useRevealRefresh(reload)
 
 async function submit() {
   if (!currentBaby.value) {
