@@ -8,7 +8,7 @@
         </div>
         <span class="who-arrow">›</span>
       </div>
-      <n-button text size="small" @click="refresh">刷新</n-button>
+      <n-button text size="small" :loading="refreshing" :disabled="refreshing" @click="refresh">刷新</n-button>
     </header>
 
     <n-popover v-model:show="datePop" trigger="click" placement="bottom" :show-arrow="false">
@@ -350,7 +350,10 @@ const sleeps = ref<Sleep[]>([])
 const diapers = ref<Diaper[]>([])
 const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gap?: string; kind: 'feeding' | 'sleep' | 'diaper'; id: number; raw: any }[]>([])
 
+const refreshing = ref(false)
+
 async function refresh() {
+  refreshing.value = true
   try {
     await babyStore.fetch()
     // 以选中日期为窗口最末一天，向前取 6 天，共近 7 天
@@ -378,6 +381,8 @@ async function refresh() {
     buildTimeline(prevDayLast)
   } catch (e: any) {
     message.error(e?.message || '加载失败')
+  } finally {
+    refreshing.value = false
   }
 }
 

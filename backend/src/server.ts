@@ -69,7 +69,7 @@ async function main() {
 
   try {
     await fastify.listen({ port: config.port, host: config.host })
-    console.log(`MomentLog 服务已启动: http://localhost:${config.port}`)
+    console.log(`喂养记录 服务已启动: http://localhost:${config.port}`)
   } catch (e) {
     fastify.log.error(e)
     process.exit(1)

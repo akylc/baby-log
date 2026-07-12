@@ -2,7 +2,7 @@
   "name": "momentlog",
   "version": "0.1.0",
   "private": true,
-  "description": "时光簿 / MomentLog — 时间点事件记录应用（monorepo）",
+  "description": "喂养记录 — 美柚风格宝宝喂养记录应用（monorepo）",
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"pnpm --filter backend dev\" \"pnpm --filter frontend dev\"",
     "build": "pnpm --filter frontend build && pnpm --filter backend build",
