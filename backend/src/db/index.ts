@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS sleeps (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   baby_id      INTEGER NOT NULL REFERENCES babies(id) ON DELETE CASCADE,
   duration_min INTEGER NOT NULL,
+  sleep_start  TEXT,                    -- 入睡时间 (ISO 8601)
+  sleep_end    TEXT,                    -- 醒来时间 (ISO 8601)
   note         TEXT,
   occurred_at  TEXT NOT NULL,
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
@@ -75,3 +77,8 @@ db.exec(schema)
 const feedingCols = (db.prepare('PRAGMA table_info(feedings)').all() as { name: string }[]).map((c) => c.name)
 if (!feedingCols.includes('left_duration_min')) db.exec('ALTER TABLE feedings ADD COLUMN left_duration_min INTEGER')
 if (!feedingCols.includes('right_duration_min')) db.exec('ALTER TABLE feedings ADD COLUMN right_duration_min INTEGER')
+
+// 迁移：sleeps 表加 sleep_start / sleep_end（睡眠记录改入睡+醒来时间）
+const sleepCols = (db.prepare('PRAGMA table_info(sleeps)').all() as { name: string }[]).map((c) => c.name)
+if (!sleepCols.includes('sleep_start')) db.exec('ALTER TABLE sleeps ADD COLUMN sleep_start TEXT')
+if (!sleepCols.includes('sleep_end')) db.exec('ALTER TABLE sleeps ADD COLUMN sleep_end TEXT')

@@ -192,8 +192,16 @@
 
           <template v-else-if="editKind === 'sleep'">
             <div class="ef">
-              <label>睡眠时长（分钟）</label>
-              <n-input-number v-model:value="eDuration" :min="1" :max="600" placeholder="如 90" style="width: 100%" />
+              <label>入睡时间<span class="req">*</span></label>
+              <n-date-picker v-model:value="eSleepStart" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
+            </div>
+            <div class="ef">
+              <label>醒来时间（选填）</label>
+              <n-date-picker v-model:value="eSleepEnd" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
+            </div>
+            <div class="ef" v-if="eSleepStart && eSleepEnd && editSleepMin > 0">
+              <label>睡眠时长（自动计算）</label>
+              <div class="sleep-dur-auto">{{ editSleepDurText }}</div>
             </div>
           </template>
 
@@ -397,7 +405,11 @@ function buildTimeline(prevDayLast: string | null) {
     items.push({ time: formatTime(f.occurred_at), sortKey: f.occurred_at, icon, title, sub: f.note || undefined, kind: 'feeding', id: f.id, raw: f })
   })
   sleeps.value.forEach((s) => {
-    items.push({ time: formatTime(s.occurred_at), sortKey: s.occurred_at, icon: '😴', title: `睡眠 ${s.duration_min}分钟`, sub: s.note || undefined, kind: 'sleep', id: s.id, raw: s })
+    const timeStr = s.sleep_start && s.sleep_end
+      ? `${formatTime(s.sleep_start)} → ${formatTime(s.sleep_end)}`
+      : formatTime(s.occurred_at)
+    const title = s.duration_min > 0 ? `睡眠 ${s.duration_min}分钟` : '睡眠 · 进行中'
+    items.push({ time: timeStr, sortKey: s.occurred_at, icon: '😴', title, sub: s.note || undefined, kind: 'sleep', id: s.id, raw: s })
   })
   diapers.value.forEach((d) => {
     const map: Record<string, string> = { pee: '尿片', poo: '便便', both: '尿+便' }
@@ -566,10 +578,27 @@ const eRight = ref<number | null>(null)
 const eAmount = ref<number | null>(null)
 const eFood = ref('')
 const eDuration = ref<number | null>(null)
+const eSleepStart = ref<number | null>(null)
+const eSleepEnd = ref<number | null>(null)
 const eDiaper = ref<'pee' | 'poo' | 'both'>('pee')
 const eNote = ref('')
 const eTs = ref(Date.now())
 const editLoading = ref(false)
+const editSleepMin = computed(() => {
+  if (!eSleepStart.value || !eSleepEnd.value) return 0
+  const diffMs = eSleepEnd.value - eSleepStart.value
+  if (diffMs <= 0) return 0
+  return Math.ceil(diffMs / 60000)
+})
+const editSleepDurText = computed(() => {
+  const m = editSleepMin.value
+  if (!m) return ''
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  if (h > 0 && r > 0) return `共 ${h} 小时 ${r} 分钟`
+  if (h > 0) return `共 ${h} 小时`
+  return `共 ${m} 分钟`
+})
 
 function openEdit(it: any) {
   editKind.value = it.kind
@@ -592,7 +621,8 @@ function openEdit(it: any) {
       eAmount.value = r.amount_ml
     }
   } else if (it.kind === 'sleep') {
-    eDuration.value = r.duration_min
+    eSleepStart.value = r.sleep_start ? isoToTs(r.sleep_start) : null
+    eSleepEnd.value = r.sleep_end ? isoToTs(r.sleep_end) : null
   } else {
     eDiaper.value = r.type
   }
@@ -625,16 +655,16 @@ async function saveEdit() {
         occurred_at: tsToIso(eTs.value),
       })
     } else if (editKind.value === 'sleep') {
-      if (!eDuration.value || eDuration.value <= 0) {
-        message.warning('请填写有效的睡眠时长')
+      if (!eSleepStart.value) {
+        message.warning('请填写入睡时间')
         editLoading.value = false
         return
       }
-      await updateSleep(editId.value, {
-        duration_min: eDuration.value,
-        note: eNote.value || null,
-        occurred_at: tsToIso(eTs.value),
-      })
+      const payload: any = { sleep_start: tsToIso(eSleepStart.value), note: eNote.value || null, occurred_at: tsToIso(eSleepStart.value) }
+      if (eSleepEnd.value && editSleepMin.value > 0) {
+        payload.sleep_end = tsToIso(eSleepEnd.value)
+      }
+      await updateSleep(editId.value, payload)
     } else {
       await updateDiaper(editId.value, {
         type: eDiaper.value,
@@ -1114,5 +1144,11 @@ onMounted(refresh)
   gap: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border-soft);
+}
+.sleep-dur-auto {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary-deep);
+  padding: 8px 0 2px;
 }
 </style>

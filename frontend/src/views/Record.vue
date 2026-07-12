@@ -126,22 +126,16 @@
 
       <template v-else-if="type === 'sleep'">
         <div class="field">
-          <label>睡眠时长（分钟）<span class="req">*</span></label>
-          <n-input-number v-model:value="duration" :min="1" :max="600" placeholder="如 90" />
-          <div class="hist" v-if="hist.sleep_duration.length">
-            <span class="hist-cap">最近（长按删除）</span>
-            <span
-              v-for="h in hist.sleep_duration"
-              :key="h"
-              class="tag"
-              @click="fillVal('sleep_duration', h)"
-              @touchstart.passive="onTagPressStart('sleep_duration', h)"
-              @touchend="onTagPressEnd"
-              @touchmove="onTagPressEnd"
-              @touchcancel="onTagPressEnd"
-              @contextmenu.prevent="askDelete('sleep_duration', h)"
-            >{{ h }}</span>
-          </div>
+          <label>入睡时间<span class="req">*</span></label>
+          <n-date-picker v-model:value="sleepStart" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
+        </div>
+        <div class="field">
+          <label>醒来时间（选填）</label>
+          <n-date-picker v-model:value="sleepEnd" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
+        </div>
+        <div class="field" v-if="sleepStart && sleepEnd && calcSleepMin > 0">
+          <label>睡眠时长（自动计算）</label>
+          <div class="sleep-dur-auto">{{ sleepDurText }}</div>
         </div>
       </template>
 
@@ -388,7 +382,23 @@ onBeforeUnmount(() => {
 const diaperType = ref<'pee' | 'poo' | 'both'>('pee')
 const leftDuration = ref<number | null>(null)
 const rightDuration = ref<number | null>(null)
-const duration = ref<number | null>(null)
+const sleepStart = ref<number>(Date.now())
+const sleepEnd = ref<number | null>(null)
+const calcSleepMin = computed(() => {
+  if (!sleepStart.value || !sleepEnd.value) return 0
+  const diffMs = sleepEnd.value - sleepStart.value
+  if (diffMs <= 0) return 0
+  return Math.ceil(diffMs / 60000)
+})
+const sleepDurText = computed(() => {
+  const m = calcSleepMin.value
+  if (!m) return ''
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  if (h > 0 && r > 0) return `共 ${h} 小时 ${r} 分钟`
+  if (h > 0) return `共 ${h} 小时`
+  return `共 ${m} 分钟`
+})
 const amount = ref<number | null>(null)
 const foodName = ref('')
 const note = ref('')
@@ -403,7 +413,6 @@ const hist = reactive<Record<string, string[]>>({
   breast_right: getHistory('breast_right'),
   milk_amount: getHistory('milk_amount'),
   food_name: getHistory('food_name'),
-  sleep_duration: getHistory('sleep_duration'),
 })
 function recordHist(key: string, val: number | string | null) {
   if (val === null || val === undefined || val === '') return
@@ -460,7 +469,6 @@ function fillVal(key: string, val: string) {
   else if (key === 'breast_right') rightDuration.value = Number(val)
   else if (key === 'milk_amount') amount.value = Number(val)
   else if (key === 'food_name') foodName.value = val
-  else if (key === 'sleep_duration') duration.value = Number(val)
 }
 
 onMounted(async () => {
@@ -524,13 +532,16 @@ async function submit() {
       recordHist('food_name', foodName.value.trim())
       await createFeeding({ babyId: currentBaby.value!.id, type: 'food', food_name: foodName.value.trim(), note: note.value || null, occurred_at: occurredAt.value })
     } else if (type.value === 'sleep') {
-      if (!duration.value || duration.value <= 0) {
-        message.warning('请填写睡眠时长')
+      if (!sleepStart.value) {
+        message.warning('请填写入睡时间')
         loading.value = false
         return
       }
-      recordHist('sleep_duration', duration.value)
-      await createSleep({ babyId: currentBaby.value!.id, duration_min: duration.value, note: note.value || null, occurred_at: occurredAt.value })
+      const payload: any = { babyId: currentBaby.value!.id, sleep_start: tsToIso(sleepStart.value), note: note.value || null }
+      if (sleepEnd.value && calcSleepMin.value > 0) {
+        payload.sleep_end = tsToIso(sleepEnd.value)
+      }
+      await createSleep(payload)
     } else if (type.value === 'diaper') {
       await createDiaper({ babyId: currentBaby.value!.id, type: diaperType.value, note: note.value || null, occurred_at: occurredAt.value })
     }
@@ -655,6 +666,12 @@ async function submit() {
 }
 .sort-toggle:active {
   color: var(--primary-deep);
+}
+.sleep-dur-auto {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary-deep);
+  padding: 8px 0 2px;
 }
 .form {
   display: flex;
