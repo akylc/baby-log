@@ -8,7 +8,13 @@
         </div>
         <span class="who-arrow">›</span>
       </div>
-      <n-button text size="small" :loading="refreshing" :disabled="refreshing" @click="refresh">刷新</n-button>
+      <n-button class="refresh-btn" :class="{ spinning: refreshing }" text size="small" :disabled="refreshing" @click="refresh" aria-label="刷新">
+        <svg class="refresh-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </n-button>
     </header>
 
     <n-popover v-model:show="datePop" trigger="click" placement="bottom" :show-arrow="false">
@@ -791,6 +797,44 @@ useRevealRefresh(refresh)
   line-height: 1;
   color: var(--text-4);
   margin-left: 2px;
+}
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--text-2);
+  transition: background 0.15s, color 0.15s;
+}
+.refresh-btn .refresh-icon {
+  flex: none;
+}
+.refresh-btn:hover {
+  background: var(--card-pink);
+  color: var(--primary);
+}
+.refresh-btn:disabled,
+.refresh-btn.spinning {
+  cursor: default;
+}
+.refresh-btn.spinning:hover {
+  background: transparent;
+  color: var(--text-2);
+}
+.refresh-btn.spinning .refresh-icon {
+  animation: refresh-spin 0.8s linear infinite;
+}
+@keyframes refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .avatar {
   width: 44px;
