@@ -155,7 +155,7 @@
         </div>
       </template>
 
-      <div class="field">
+      <div class="field" v-if="type !== 'sleep'">
         <label>时间</label>
         <n-date-picker v-model:value="occurredTs" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
       </div>

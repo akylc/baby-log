@@ -222,7 +222,7 @@
             </div>
           </template>
 
-          <div class="ef">
+          <div class="ef" v-if="editKind !== 'sleep'">
             <label>时间</label>
             <n-date-picker v-model:value="eTs" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
           </div>
