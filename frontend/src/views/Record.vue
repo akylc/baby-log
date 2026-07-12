@@ -23,22 +23,36 @@
           <label>左乳时长（分钟）<span class="req">*</span></label>
           <n-input-number v-model:value="leftDuration" :min="0" :max="240" placeholder="如 15" />
           <div class="hist" v-if="hist.breast_left.length">
-            <span class="hist-cap">最近</span>
-            <span v-for="h in hist.breast_left" :key="h" class="tag">
-              <span class="tag-val" @click="leftDuration = Number(h)">{{ h }}</span>
-              <span class="tag-del" type="button" @click="deleteHist('breast_left', h)">×</span>
-            </span>
+            <span class="hist-cap">最近（长按删除）</span>
+            <span
+              v-for="h in hist.breast_left"
+              :key="h"
+              class="tag"
+              @click="fillVal('breast_left', h)"
+              @touchstart.passive="onTagPressStart('breast_left', h)"
+              @touchend="onTagPressEnd"
+              @touchmove="onTagPressEnd"
+              @touchcancel="onTagPressEnd"
+              @contextmenu.prevent="askDelete('breast_left', h)"
+            >{{ h }}</span>
           </div>
         </div>
         <div class="field">
           <label>右乳时长（分钟）<span class="req">*</span></label>
           <n-input-number v-model:value="rightDuration" :min="0" :max="240" placeholder="如 15" />
           <div class="hist" v-if="hist.breast_right.length">
-            <span class="hist-cap">最近</span>
-            <span v-for="h in hist.breast_right" :key="h" class="tag">
-              <span class="tag-val" @click="rightDuration = Number(h)">{{ h }}</span>
-              <span class="tag-del" type="button" @click="deleteHist('breast_right', h)">×</span>
-            </span>
+            <span class="hist-cap">最近（长按删除）</span>
+            <span
+              v-for="h in hist.breast_right"
+              :key="h"
+              class="tag"
+              @click="fillVal('breast_right', h)"
+              @touchstart.passive="onTagPressStart('breast_right', h)"
+              @touchend="onTagPressEnd"
+              @touchmove="onTagPressEnd"
+              @touchcancel="onTagPressEnd"
+              @contextmenu.prevent="askDelete('breast_right', h)"
+            >{{ h }}</span>
           </div>
         </div>
       </template>
@@ -48,11 +62,18 @@
           <label>奶量（ml）<span class="req">*</span></label>
           <n-input-number v-model:value="amount" :min="0" :max="500" placeholder="如 120" />
           <div class="hist" v-if="hist.milk_amount.length">
-            <span class="hist-cap">最近</span>
-            <span v-for="h in hist.milk_amount" :key="h" class="tag">
-              <span class="tag-val" @click="amount = Number(h)">{{ h }}</span>
-              <span class="tag-del" type="button" @click="deleteHist('milk_amount', h)">×</span>
-            </span>
+            <span class="hist-cap">最近（长按删除）</span>
+            <span
+              v-for="h in hist.milk_amount"
+              :key="h"
+              class="tag"
+              @click="fillVal('milk_amount', h)"
+              @touchstart.passive="onTagPressStart('milk_amount', h)"
+              @touchend="onTagPressEnd"
+              @touchmove="onTagPressEnd"
+              @touchcancel="onTagPressEnd"
+              @contextmenu.prevent="askDelete('milk_amount', h)"
+            >{{ h }}</span>
           </div>
         </div>
       </template>
@@ -62,11 +83,18 @@
           <label>奶量（ml）<span class="req">*</span></label>
           <n-input-number v-model:value="amount" :min="0" :max="500" placeholder="如 120" />
           <div class="hist" v-if="hist.milk_amount.length">
-            <span class="hist-cap">最近</span>
-            <span v-for="h in hist.milk_amount" :key="h" class="tag">
-              <span class="tag-val" @click="amount = Number(h)">{{ h }}</span>
-              <span class="tag-del" type="button" @click="deleteHist('milk_amount', h)">×</span>
-            </span>
+            <span class="hist-cap">最近（长按删除）</span>
+            <span
+              v-for="h in hist.milk_amount"
+              :key="h"
+              class="tag"
+              @click="fillVal('milk_amount', h)"
+              @touchstart.passive="onTagPressStart('milk_amount', h)"
+              @touchend="onTagPressEnd"
+              @touchmove="onTagPressEnd"
+              @touchcancel="onTagPressEnd"
+              @contextmenu.prevent="askDelete('milk_amount', h)"
+            >{{ h }}</span>
           </div>
         </div>
       </template>
@@ -76,11 +104,18 @@
           <label>辅食名称<span class="req">*</span></label>
           <n-input v-model:value="foodName" placeholder="如 米粉、南瓜泥" />
           <div class="hist" v-if="hist.food_name.length">
-            <span class="hist-cap">最近</span>
-            <span v-for="h in hist.food_name" :key="h" class="tag">
-              <span class="tag-val" @click="foodName = h">{{ h }}</span>
-              <span class="tag-del" type="button" @click="deleteHist('food_name', h)">×</span>
-            </span>
+            <span class="hist-cap">最近（长按删除）</span>
+            <span
+              v-for="h in hist.food_name"
+              :key="h"
+              class="tag"
+              @click="fillVal('food_name', h)"
+              @touchstart.passive="onTagPressStart('food_name', h)"
+              @touchend="onTagPressEnd"
+              @touchmove="onTagPressEnd"
+              @touchcancel="onTagPressEnd"
+              @contextmenu.prevent="askDelete('food_name', h)"
+            >{{ h }}</span>
           </div>
         </div>
       </template>
@@ -90,11 +125,18 @@
           <label>睡眠时长（分钟）<span class="req">*</span></label>
           <n-input-number v-model:value="duration" :min="1" :max="600" placeholder="如 90" />
           <div class="hist" v-if="hist.sleep_duration.length">
-            <span class="hist-cap">最近</span>
-            <span v-for="h in hist.sleep_duration" :key="h" class="tag">
-              <span class="tag-val" @click="duration = Number(h)">{{ h }}</span>
-              <span class="tag-del" type="button" @click="deleteHist('sleep_duration', h)">×</span>
-            </span>
+            <span class="hist-cap">最近（长按删除）</span>
+            <span
+              v-for="h in hist.sleep_duration"
+              :key="h"
+              class="tag"
+              @click="fillVal('sleep_duration', h)"
+              @touchstart.passive="onTagPressStart('sleep_duration', h)"
+              @touchend="onTagPressEnd"
+              @touchmove="onTagPressEnd"
+              @touchcancel="onTagPressEnd"
+              @contextmenu.prevent="askDelete('sleep_duration', h)"
+            >{{ h }}</span>
           </div>
         </div>
       </template>
@@ -137,7 +179,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { storeToRefs } from 'pinia'
 import { useBabyStore } from '@/stores/baby'
 import { createFeeding } from '@/api/feedings'
@@ -148,6 +190,7 @@ import { tsToIso } from '@/utils/time'
 
 const router = useRouter()
 const message = useMessage()
+const dialog = useDialog()
 const babyStore = useBabyStore()
 const { currentBaby } = storeToRefs(babyStore)
 
@@ -216,6 +259,54 @@ function recordHist(key: string, val: number | string | null) {
 }
 function deleteHist(key: string, val: string) {
   hist[key] = removeHistory(key, val)
+}
+
+// 最近 tag：轻点填入数值；长按（移动端）/ 右键（桌面端）弹出确认后删除，
+// 避免移动端误触常驻删除按钮直接删掉历史项。
+let pressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressed = false
+let dialogOpen = false
+
+function onTagPressStart(key: string, val: string) {
+  longPressed = false
+  if (pressTimer) clearTimeout(pressTimer)
+  pressTimer = setTimeout(() => {
+    pressTimer = null
+    longPressed = true
+    askDelete(key, val)
+  }, 500)
+}
+function onTagPressEnd() {
+  if (pressTimer) {
+    clearTimeout(pressTimer)
+    pressTimer = null
+  }
+}
+function askDelete(key: string, val: string) {
+  if (dialogOpen) return
+  dialogOpen = true
+  dialog.warning({
+    title: '删除历史记录',
+    content: `确定从快捷选项中删除「${val}」吗？`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: () => deleteHist(key, val),
+    onAfterLeave: () => {
+      dialogOpen = false
+    },
+  })
+}
+function fillVal(key: string, val: string) {
+  // 若是长按触发的删除，则本次抬起后的 click 不再填入
+  if (longPressed) {
+    longPressed = false
+    return
+  }
+  if (key === 'breast_left') leftDuration.value = Number(val)
+  else if (key === 'breast_right') rightDuration.value = Number(val)
+  else if (key === 'milk_amount') amount.value = Number(val)
+  else if (key === 'food_name') foodName.value = val
+  else if (key === 'sleep_duration') duration.value = Number(val)
 }
 
 onMounted(async () => {
@@ -396,32 +487,15 @@ async function submit() {
   background: var(--tag-bg);
   color: var(--tag-text);
   border-radius: 14px;
-  padding: 0 2px 0 10px;
-  font-size: 12px;
+  padding: 6px 14px;
+  font-size: 13px;
   line-height: 1.4;
-  overflow: hidden;
-}
-.tag-val {
-  padding: 4px 0;
   cursor: pointer;
-}
-.tag-del {
-  margin-left: 2px;
-  width: 20px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--tag-text);
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-  flex: none;
-}
-.tag-del:active {
-  color: var(--primary-deep);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation; /* 去移动端双击缩放/点击延迟 */
+  transition: background 0.15s;
 }
 .tag:active {
   background: var(--card-pink);
