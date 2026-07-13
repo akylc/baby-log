@@ -3,10 +3,14 @@
 # 这里只把纯 JS 的 backend/dist 复制进镜像，无需任何原生编译/依赖安装。
 FROM node:24-alpine
 
-# VERSION 由构建时通过 --build-arg 传入（取自仓库根 package.json 的 version），
-# 注入为运行时环境变量 APP_VERSION（供 /api/health 返回），并作为镜像 LABEL。
+# 版本单一数据源 = 仓库根 package.json 的 version。
+# - APP_VERSION：tsup 构建 dist 时已把 package.json 的 version 内联进 server.js（见 backend/tsup.config.ts
+#   的 define），运行期不再依赖任何环境变量；因此 Docker 层**不设** APP_VERSION（已移除 ENV APP_VERSION=$VERSION）。
+# - LABEL version：通过 --build-arg VERSION 传入，由 pnpm docker:build（scripts/build-docker.mjs）
+#   自动读取根 package.json 的 version 注入，保证镜像标签与代码版本一致。直接 docker build 不带
+#   --build-arg 也能成功，但 LABEL version 会为空——请始终用 pnpm docker:build。
+# （构建上下文刻意精简，package.json 被 .dockerignore 排除，故版本不在 Dockerfile 内读取，而由构建脚本传入。）
 ARG VERSION
-ENV APP_VERSION=$VERSION
 LABEL version=$VERSION
 
 WORKDIR /app

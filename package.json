@@ -7,6 +7,7 @@
     "dev": "concurrently -n backend,frontend -c blue,green \"pnpm --filter backend dev\" \"pnpm --filter frontend dev\"",
     "build": "pnpm --filter frontend build && pnpm --filter backend build",
     "start": "pnpm --filter backend start",
+    "docker:build": "node scripts/build-docker.mjs",
     "predev": "node scripts/stop-if-running.mjs",
     "prebuild": "node scripts/stop-if-running.mjs",
     "prestart": "node scripts/stop-if-running.mjs"
