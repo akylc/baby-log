@@ -23,6 +23,6 @@ const tarDir = process.env.DOCKER_TAR_DIR || 'N:/应用/Docker/baby-log'
 const tarPath = `${tarDir}/baby-log-v${version}.tar`
 
 console.log(`[build-docker] 读取版本=${version}  镜像=${image}`)
-execSync(`docker build --build-arg VERSION=${version} -t ${image} .`, { cwd: root, stdio: 'inherit' })
+execSync(`docker build -t ${image} .`, { cwd: root, stdio: 'inherit' })
 execSync(`docker save -o "${tarPath}" ${image}`, { stdio: 'inherit' })
 console.log(`[build-docker] 完成 -> ${tarPath}`)
