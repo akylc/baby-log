@@ -286,7 +286,6 @@ import { listDiapers, updateDiaper, deleteDiaper, type Diaper } from '@/api/diap
 import { formatClock, tsToIso, isoToTs } from '@/utils/time'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
 import { useRevealRefresh } from '@/utils/reveal'
-import { APP_VERSION } from '@/build-info'
 
 // 供 <keep-alive include="Home"> 精确匹配缓存
 defineOptions({ name: 'Home' })
@@ -297,8 +296,9 @@ const dialog = useDialog()
 const babyStore = useBabyStore()
 const { currentBaby, babies } = storeToRefs(babyStore)
 
-// 版本与打包时间（构建时由 Vite define 注入 __BUILD_TIME__，见 vite.config.ts）
-const appVersion = APP_VERSION
+// 版本与打包时间（构建时由 Vite define 注入，见 vite.config.ts）
+// 版本号统一取自仓库根 package.json 的 version（注入为 VITE_APP_VERSION）
+const appVersion = (import.meta.env as any).VITE_APP_VERSION || '—'
 const buildTime = __BUILD_TIME__
 
 const today = ref(todayStr())
