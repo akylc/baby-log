@@ -29,13 +29,17 @@
         </div>
       </template>
       <n-date-picker
+        panel
         v-model:value="selectedTs"
         type="date"
         :is-date-disabled="disableFuture"
-        format="M月d日"
-        size="small"
+        :actions="null"
         @update:value="onPickDate"
-      />
+      >
+        <template #footer>
+          <button class="today-btn" :disabled="selectedDate === today" @click="goToday">回到今日</button>
+        </template>
+      </n-date-picker>
     </n-popover>
 
     <section class="stats" v-if="currentBaby">
@@ -364,6 +368,12 @@ watch(
   },
 )
 function onPickDate() {
+  datePop.value = false
+}
+function goToday() {
+  if (selectedDate.value !== today.value) {
+    selectedTs.value = new Date(today.value + 'T00:00').getTime()
+  }
   datePop.value = false
 }
 const stats = ref<DayStats>({
@@ -934,6 +944,25 @@ useRevealRefresh(refresh)
 .date-bar .w {
   font-size: 12px;
   color: var(--text-3);
+}
+.today-btn {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.today-btn:hover:not(:disabled) {
+  background: var(--border-soft);
+}
+.today-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .stats {
   display: grid;
