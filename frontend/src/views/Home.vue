@@ -376,7 +376,7 @@ const stats = ref<DayStats>({
 const feedings = ref<Feeding[]>([])
 const sleeps = ref<Sleep[]>([])
 const diapers = ref<Diaper[]>([])
-const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: { text: string; kind: 'now' | 'last' }[]; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any }[]>([])
+const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: { text: string; kind: 'now' | 'last' }[]; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any; anchorTs: number }[]>([])
 
 const refreshing = ref(false)
 
@@ -412,13 +412,13 @@ async function refresh() {
     sleeps.value = sl
     diapers.value = d
     // 前一天各类型最后一条记录（7 天窗口之外，作为该类型最早项的「距上次」下界）
-    const prevDayLastByType: Record<string, string> = {}
-    const bump = (key: string, ts: string) => {
-      if (!prevDayLastByType[key] || ts > prevDayLastByType[key]) prevDayLastByType[key] = ts
+    const prevDayLastByType: Record<string, number> = {}
+    const bump = (key: string, ms: number) => {
+      if (prevDayLastByType[key] == null || ms > prevDayLastByType[key]) prevDayLastByType[key] = ms
     }
-    pf.forEach((r) => bump(r.type, r.occurred_at))
-    ps.forEach((r) => bump('sleep', r.occurred_at))
-    pd.forEach((r) => bump('diaper', r.occurred_at))
+    pf.forEach((r) => bump(r.type, new Date(r.occurred_at.replace(' ', 'T')).getTime()))
+    ps.forEach((r) => bump('sleep', sleepAnchor(r)))
+    pd.forEach((r) => bump('diaper', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
     buildTimeline(prevDayLastByType)
   } catch (e: any) {
     message.error(e?.message || '加载失败')
@@ -427,8 +427,19 @@ async function refresh() {
   }
 }
 
-function buildTimeline(prevDayLastByType: Record<string, string>) {
-  const items: { time: string; sortKey: string; icon: string; title: string; sub?: string; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any; gaps: { text: string; kind: 'now' | 'last' }[] }[] = []
+// 睡眠「事件锚点」：优先用醒来时间；无醒来时间则用「入睡时间 + 时长」（进行中回退入睡时间）
+function sleepAnchor(r: { sleep_start?: string | null; sleep_end?: string | null; duration_min?: number; occurred_at: string }): number {
+  const toMs = (s?: string | null) => (s ? new Date(s.replace(' ', 'T')).getTime() : NaN)
+  const end = toMs(r.sleep_end)
+  if (!isNaN(end)) return end
+  const start = toMs(r.sleep_start)
+  const dur = (r.duration_min || 0) * 60000
+  if (!isNaN(start) && dur > 0) return start + dur
+  return toMs(r.occurred_at) || Date.now()
+}
+
+function buildTimeline(prevDayLastByType: Record<string, number>) {
+  const items: { time: string; sortKey: string; icon: string; title: string; sub?: string; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any; anchorTs: number; gaps: { text: string; kind: 'now' | 'last' }[] }[] = []
   feedings.value.forEach((f) => {
     let icon = '🍼'
     let title = ''
@@ -448,18 +459,18 @@ function buildTimeline(prevDayLastByType: Record<string, string>) {
       icon = '🍚'
       title = `辅食 ${f.food_name || ''}`.trim()
     }
-    items.push({ time: formatClock(f.occurred_at), sortKey: f.occurred_at, icon, title, sub: f.note || undefined, kind: 'feeding', type: f.type, id: f.id, raw: f })
+    items.push({ time: formatClock(f.occurred_at), sortKey: f.occurred_at, icon, title, sub: f.note || undefined, kind: 'feeding', type: f.type, id: f.id, raw: f, anchorTs: new Date(f.occurred_at.replace(' ', 'T')).getTime() })
   })
   sleeps.value.forEach((s) => {
     const timeStr = s.sleep_start && s.sleep_end
       ? `${formatClock(s.sleep_start)} → ${formatClock(s.sleep_end)}`
       : formatClock(s.occurred_at)
     const title = s.duration_min > 0 ? `睡眠 ${fmtDuration(s.duration_min)}` : '睡眠 · 进行中'
-    items.push({ time: timeStr, sortKey: s.occurred_at, icon: '😴', title, sub: s.note || undefined, kind: 'sleep', type: 'sleep', id: s.id, raw: s })
+    items.push({ time: timeStr, sortKey: s.occurred_at, icon: '😴', title, sub: s.note || undefined, kind: 'sleep', type: 'sleep', id: s.id, raw: s, anchorTs: sleepAnchor(s) })
   })
   diapers.value.forEach((d) => {
     const map: Record<string, string> = { pee: '尿片', poo: '便便', both: '尿+便' }
-    items.push({ time: formatClock(d.occurred_at), sortKey: d.occurred_at, icon: '💩', title: map[d.type] || '换尿布', sub: d.note || undefined, kind: 'diaper', type: 'diaper', id: d.id, raw: d })
+    items.push({ time: formatClock(d.occurred_at), sortKey: d.occurred_at, icon: '💩', title: map[d.type] || '换尿布', sub: d.note || undefined, kind: 'diaper', type: 'diaper', id: d.id, raw: d, anchorTs: new Date(d.occurred_at.replace(' ', 'T')).getTime() })
   })
   items.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
   const now = Date.now()
@@ -477,26 +488,19 @@ function buildTimeline(prevDayLastByType: Record<string, string>) {
   for (const list of Object.values(byType)) {
     const label = typeLabel[list[0].type] || '记录'
     list.forEach((it, k) => {
-      const cur = new Date(it.sortKey.replace(' ', 'T')).getTime()
+      const cur = it.anchorTs
       const gaps: { text: string; kind: 'now' | 'last' }[] = []
-      // 「距现在」基准：睡眠以「醒来时间」为准，其余以记录时间为准
-      let nowBase = cur
-      if (it.kind === 'sleep') {
-        const s = it.raw as { sleep_end?: string | null; duration_min?: number }
-        if (s.sleep_end) nowBase = new Date(s.sleep_end).getTime()
-        else nowBase = cur + (s.duration_min || 0) * 60000 // 进行中（无醒来时间）回退到入睡时间，即「已睡多久」
-      }
-      // 距现在：同类型最新一条即显示（不限日期，便于随时查看「距上次做这件事过了多久」）
+      // 距现在：以各类型「事件锚点」为准（睡眠优先用醒来时间，其余用记录时间）
       if (k === 0) {
-        gaps.push({ text: '距现在 ' + fmtGap(Math.max(0, Math.round((now - nowBase) / 60000))), kind: 'now' })
+        gaps.push({ text: '距现在 ' + fmtGap(Math.max(0, Math.round((now - cur) / 60000))), kind: 'now' })
       }
-      // 距上次：相对同类型时间上更早的一条（窗口内 list[k+1]，否则前一天 prevDayLastByType）
+      // 距上次：相对同类型时间上更早的一条（窗口内 list[k+1] 的锚点，否则前一天 prevDayLastByType）
       let olderTs: number | null = null
       if (k < list.length - 1) {
-        olderTs = new Date(list[k + 1].sortKey.replace(' ', 'T')).getTime()
+        olderTs = list[k + 1].anchorTs
       } else {
         const prev = prevDayLastByType[it.type]
-        if (prev) olderTs = new Date(prev.replace(' ', 'T')).getTime()
+        if (prev != null) olderTs = prev
       }
       if (olderTs != null) {
         gaps.push({ text: '距上次' + label + ' ' + fmtGap(Math.max(1, Math.round((cur - olderTs) / 60000))), kind: 'last' })
