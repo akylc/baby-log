@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
+import { readFileSync } from 'node:fs'
 
 // 构建时自动生成「打包日期时间」（本地时区，YYYY-MM-DD HH:mm），
 // 通过 Vite define 注入为全局常量 __BUILD_TIME__，每次构建自动更新。
@@ -10,10 +11,16 @@ function formatBuildTime(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// 读取仓库根 package.json 的 version 作为唯一版本来源，注入前端 VITE_APP_VERSION
+const rootPkg = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf-8'),
+)
+
 export default defineConfig({
   plugins: [vue()],
   define: {
     __BUILD_TIME__: JSON.stringify(formatBuildTime()),
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(rootPkg.version),
   },
   resolve: {
     alias: {

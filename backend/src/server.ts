@@ -11,6 +11,7 @@ import feedingRoutes from './routes/feedings'
 import sleepRoutes from './routes/sleeps'
 import diaperRoutes from './routes/diapers'
 import statsRoutes from './routes/stats'
+import healthRoutes from './routes/health'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -20,10 +21,14 @@ declare module 'fastify' {
 
 const fastify = Fastify({ logger: true })
 
-// 鉴权前置钩子：除 /api/auth/ 外的所有 /api 请求需携带有效 token
+// 鉴权前置钩子：除 /api/auth/ 与 /api/health 外的所有 /api 请求需携带有效 token
 fastify.addHook('preHandler', async (req, reply) => {
   const url = req.url
-  if (url.startsWith('/api/') && !url.startsWith('/api/auth/')) {
+  if (
+    url.startsWith('/api/') &&
+    !url.startsWith('/api/auth/') &&
+    !url.startsWith('/api/health')
+  ) {
     const auth = req.headers.authorization || ''
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
     const payload = verifyToken(token)
@@ -48,6 +53,7 @@ async function main() {
   await fastify.register(sleepRoutes)
   await fastify.register(diaperRoutes)
   await fastify.register(statsRoutes)
+  await fastify.register(healthRoutes)
 
   // SPA history 回退：文件存在则发文件，否则回退到 index.html
   fastify.get('/*', async (req, reply) => {

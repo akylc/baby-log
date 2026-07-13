@@ -3,6 +3,12 @@
 # 这里只把纯 JS 的 backend/dist 复制进镜像，无需任何原生编译/依赖安装。
 FROM node:24-alpine
 
+# VERSION 由构建时通过 --build-arg 传入（取自仓库根 package.json 的 version），
+# 注入为运行时环境变量 APP_VERSION（供 /api/health 返回），并作为镜像 LABEL。
+ARG VERSION
+ENV APP_VERSION=$VERSION
+LABEL version=$VERSION
+
 WORKDIR /app
 
 # server.js 已通过 tsup 内联所有运行时依赖；

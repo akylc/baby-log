@@ -87,13 +87,17 @@ pnpm start
 
 ### Docker
 
+镜像版本与 `/api/health` 返回的版本统一取自仓库根 `package.json` 的 `version`。构建时读取该版本并作为镜像 tag / `LABEL` / 运行时 `ENV APP_VERSION`：
+
 ```bash
 pnpm build                 # 在宿主机 / CI 完成依赖安装与打包
-docker build -t baby-log .
-docker run -d -p 26712:26712 -v $(pwd)/data:/app/data baby-log
+VERSION=$(node -p "require('./package.json').version")   # 读取根 version
+docker build --build-arg VERSION=$VERSION -t baby-log:$VERSION .
+docker run -d -p 26712:26712 -v $(pwd)/data:/app/data baby-log:$VERSION
 ```
 
 - 镜像基于 `node:24-alpine`，仅拷贝纯 JS 的 `backend/dist`，无需运行时依赖安装。
+- `VERSION` 经 `--build-arg` 注入，容器内 `/api/health` 即可看到版本；用 `docker inspect baby-log:$VERSION` 可查看 `LABEL version`。
 - 数据库文件位于容器 `/app/data/momentlog.db`，务必用 `-v` 挂载卷持久化，否则容器删除后数据丢失。
 
 ## 配置说明

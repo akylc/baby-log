@@ -80,6 +80,10 @@
           </button>
         </div>
       </div>
+      <div class="setting-row">
+        <span class="s-label">版本</span>
+        <span class="s-val">{{ appVersion }}</span>
+      </div>
     </div>
 
     <div class="account">
@@ -106,6 +110,8 @@ const dialog = useDialog()
 const babyStore = useBabyStore()
 const { babies, currentBaby } = storeToRefs(babyStore)
 const auth = useAuthStore()
+// 版本号统一取自构建时注入的环境变量（源头为仓库根 package.json 的 version）
+const appVersion = (import.meta.env as any).VITE_APP_VERSION || '—'
 
 function goHome() {
   router.replace('/')
@@ -387,5 +393,9 @@ function logout() {
 .s-label {
   font-size: 14px;
   color: var(--text-1);
+}
+.s-val {
+  font-size: 13px;
+  color: var(--text-3);
 }
 </style>
