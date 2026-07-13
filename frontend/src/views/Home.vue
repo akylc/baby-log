@@ -81,7 +81,7 @@
             <div class="tl-title">{{ it.title }}</div>
             <div class="tl-sub" v-if="it.sub">{{ it.sub }}</div>
             <div class="tl-gaps" v-if="it.gaps && it.gaps.length">
-              <span class="tl-gap" v-for="(g, gi) in it.gaps" :key="gi">{{ g }}</span>
+              <span class="tl-gap" :class="{ 'tl-gap-now': g.kind === 'now' }" v-for="(g, gi) in it.gaps" :key="gi">{{ g.text }}</span>
             </div>
           </div>
           <div class="tl-time">{{ it.time }}</div>
@@ -301,12 +301,12 @@ const { currentBaby, babies } = storeToRefs(babyStore)
 const appVersion = APP_VERSION
 const buildTime = __BUILD_TIME__
 
-const today = todayStr()
+const today = ref(todayStr())
 // 日期切换：按选中日期查看历史数据
-const selectedTs = ref(new Date(today + 'T00:00').getTime())
+const selectedTs = ref(new Date(today.value + 'T00:00').getTime())
 const datePop = ref(false)
-const selectedDate = ref(today)
-const viewingToday = computed(() => selectedDate.value === today)
+const selectedDate = ref(today.value)
+const viewingToday = computed(() => selectedDate.value === today.value)
 const selectedDateLabel = computed(() => {
   const [, m, d] = selectedDate.value.split('-')
   return `${Number(m)}月${Number(d)}日`
@@ -338,7 +338,7 @@ function prevDay() {
   shiftDay(-1)
 }
 function nextDay() {
-  if (selectedDate.value < today) shiftDay(1)
+  if (selectedDate.value < today.value) shiftDay(1)
 }
 function disableFuture(ts: number) {
   const t = new Date(ts)
@@ -347,8 +347,14 @@ function disableFuture(ts: number) {
   t0.setHours(0, 0, 0, 0)
   return t.getTime() > t0.getTime()
 }
+// 程序化修改 selectedTs（跨天跟随）时跳过二次刷新，避免 watch 触发重复请求
+let internalDateChange = false
 watch(selectedTs, (ts) => {
   selectedDate.value = dateStr(ts)
+  if (internalDateChange) {
+    internalDateChange = false
+    return
+  }
   refresh()
 })
 watch(
@@ -370,13 +376,23 @@ const stats = ref<DayStats>({
 const feedings = ref<Feeding[]>([])
 const sleeps = ref<Sleep[]>([])
 const diapers = ref<Diaper[]>([])
-const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: string[]; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any }[]>([])
+const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: { text: string; kind: 'now' | 'last' }[]; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any }[]>([])
 
 const refreshing = ref(false)
 
 async function refresh() {
   refreshing.value = true
   try {
+    // 跨天修正：以真实「今天」为准。首页被 keep-alive 缓存时，组件挂载时计算的
+    // 今天会过期；此处每次刷新重新取真实日期，若用户正停留在「今天」视图则自动
+    // 跟随到新的一天，确保新日期的记录被纳入查询窗口（否则会卡在旧日期刷不出来）。
+    const newToday = todayStr()
+    if (selectedDate.value === today.value && newToday !== today.value) {
+      internalDateChange = true
+      selectedDate.value = newToday
+      selectedTs.value = new Date(newToday + 'T00:00').getTime()
+    }
+    today.value = newToday
     await babyStore.fetch()
     // 以选中日期为窗口最末一天，向前取 6 天，共近 7 天
     const fromDate = shiftDateStr(selectedDate.value, -6)
@@ -412,7 +428,7 @@ async function refresh() {
 }
 
 function buildTimeline(prevDayLastByType: Record<string, string>) {
-  const items: { time: string; sortKey: string; icon: string; title: string; sub?: string; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any; gaps: string[] }[] = []
+  const items: { time: string; sortKey: string; icon: string; title: string; sub?: string; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any; gaps: { text: string; kind: 'now' | 'last' }[] }[] = []
   feedings.value.forEach((f) => {
     let icon = '🍼'
     let title = ''
@@ -438,7 +454,7 @@ function buildTimeline(prevDayLastByType: Record<string, string>) {
     const timeStr = s.sleep_start && s.sleep_end
       ? `${formatClock(s.sleep_start)} → ${formatClock(s.sleep_end)}`
       : formatClock(s.occurred_at)
-    const title = s.duration_min > 0 ? `睡眠 ${s.duration_min}分钟` : '睡眠 · 进行中'
+    const title = s.duration_min > 0 ? `睡眠 ${fmtDuration(s.duration_min)}` : '睡眠 · 进行中'
     items.push({ time: timeStr, sortKey: s.occurred_at, icon: '😴', title, sub: s.note || undefined, kind: 'sleep', type: 'sleep', id: s.id, raw: s })
   })
   diapers.value.forEach((d) => {
@@ -462,10 +478,10 @@ function buildTimeline(prevDayLastByType: Record<string, string>) {
     const label = typeLabel[list[0].type] || '记录'
     list.forEach((it, k) => {
       const cur = new Date(it.sortKey.replace(' ', 'T')).getTime()
-      const gaps: string[] = []
-      // 距现在：仅同类型最新一条且为今天
-      if (k === 0 && it.sortKey.slice(0, 10) === today) {
-        gaps.push('距现在 ' + fmtGap(Math.max(0, Math.round((now - cur) / 60000))))
+      const gaps: { text: string; kind: 'now' | 'last' }[] = []
+      // 距现在：同类型最新一条即显示（不限日期，便于随时查看「距上次做这件事过了多久」）
+      if (k === 0) {
+        gaps.push({ text: '距现在 ' + fmtGap(Math.max(0, Math.round((now - cur) / 60000))), kind: 'now' })
       }
       // 距上次：相对同类型时间上更早的一条（窗口内 list[k+1]，否则前一天 prevDayLastByType）
       let olderTs: number | null = null
@@ -476,7 +492,7 @@ function buildTimeline(prevDayLastByType: Record<string, string>) {
         if (prev) olderTs = new Date(prev.replace(' ', 'T')).getTime()
       }
       if (olderTs != null) {
-        gaps.push('距上次' + label + ' ' + fmtGap(Math.max(1, Math.round((cur - olderTs) / 60000))))
+        gaps.push({ text: '距上次' + label + ' ' + fmtGap(Math.max(1, Math.round((cur - olderTs) / 60000))), kind: 'last' })
       }
       it.gaps = gaps
     })
@@ -501,9 +517,9 @@ const dayGroups = computed(() => {
 })
 
 function dayLabel(day: string): string {
-  if (day === today) return '今日记录'
-  if (day === shiftDateStr(today, -1)) return '昨天'
-  if (day === shiftDateStr(today, -2)) return '前天'
+  if (day === today.value) return '今日记录'
+  if (day === shiftDateStr(today.value, -1)) return '昨天'
+  if (day === shiftDateStr(today.value, -2)) return '前天'
   const [y, m, d] = day.split('-').map(Number)
   const w = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][new Date(y, m - 1, d).getDay()]
   return `${Number(m)}月${Number(d)}日 ${w}`
@@ -526,10 +542,20 @@ function daySummary(day: string): string {
 
 function fmtGap(min: number): string {
   if (min < 1) return '刚刚'
-  const h = Math.floor(min / 60)
+  const d = Math.floor(min / 1440)
+  const h = Math.floor((min % 1440) / 60)
   const m = min % 60
+  if (d > 0) return h > 0 ? `${d}天${h}小时` : `${d}天`
   if (h > 0) return m > 0 ? `${h}小时${m}分钟` : `${h}小时`
   return `${m}分钟`
+}
+
+// 睡眠时长格式化：<60 分钟显示「N分钟」；整小时显示「N小时」；超过整小时显示「N小时M分钟」
+function fmtDuration(min: number): string {
+  if (min < 60) return `${min}分钟`
+  const h = Math.floor(min / 60)
+  const r = min % 60
+  return r > 0 ? `${h}小时${r}分钟` : `${h}小时`
 }
 
 const switchShow = ref(false)
@@ -969,7 +995,7 @@ useRevealRefresh(refresh)
   text-align: center;
   font-size: 11px;
   color: var(--text-4);
-  padding: 18px 0 calc(20px + env(safe-area-inset-bottom));
+  padding: 18px 0 20px;
   letter-spacing: 0.3px;
 }
 .tl-item {
@@ -1028,6 +1054,11 @@ useRevealRefresh(refresh)
   background: var(--card-pink);
   border-radius: 8px;
   padding: 1px 7px;
+}
+/* 「距现在」标签：绿色，与粉色「距上次」标签区分 */
+.tl-gap-now {
+  color: var(--now-text);
+  background: var(--now-bg);
 }
 .tl-time {
   font-size: 12px;

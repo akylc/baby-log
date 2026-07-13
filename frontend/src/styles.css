@@ -38,6 +38,8 @@ body {
   --tag-text: #ff5c8a;
   --primary: #ff7aa2;
   --primary-deep: #ff5c8a;
+  --now-text: #1a9e5f;
+  --now-bg: #e6f7ee;
   --sheet-bg: #f7f8fa;
   --mask: rgba(0, 0, 0, 0.45);
   --avatar-bg: #ffe3ec;
@@ -60,6 +62,8 @@ html.dark {
   --tag-text: #ff95b8;
   --primary: #ff7aa2;
   --primary-deep: #ff5c8a;
+  --now-text: #4fd18b;
+  --now-bg: #1e2b24;
   --sheet-bg: #1f2127;
   --mask: rgba(0, 0, 0, 0.6);
   --avatar-bg: #2a1f26;

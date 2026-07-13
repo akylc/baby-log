@@ -71,8 +71,8 @@ const themeOverrides = computed(() => {
 .app-shell {
   max-width: 480px;
   margin: 0 auto;
-  /* iOS Safari 上 100vh 会包含地址栏背后的区域，导致比可见区高、整页出现滚动条；
-     改用 100dvh（动态视口）贴合真实可见高度，100vh 仅作旧浏览器兜底 */
+  /* 高度优先用 100dvh（动态视口）贴合 Safari 地址栏收起后的真实可见高度，
+     100vh 仅作旧浏览器兜底。 */
   height: 100vh;
   height: 100dvh;
   display: flex;
@@ -81,8 +81,10 @@ const themeOverrides = computed(() => {
   position: relative;
   box-shadow: 0 0 24px rgba(0, 0, 0, 0.06);
   overflow: hidden;
-  /* iOS 添加到主屏幕（全屏）时，状态栏会覆盖页面顶部：
-     用安全区内边距把内容推到状态栏之下，避免重叠。 */
+  /* 状态栏安全区：仅顶部预留，把内容推到状态栏之下，避免与状态栏重叠。
+     底部安全区在此统一预留一次（所有页面通用，含首页 build-info / 各页底部内容），
+     页面内容自身不要再重复加 safe-area-inset-bottom，否则既留空过大，又会让
+     滚动容器被多算一截而在 iOS 独立模式下冒出 phantom 滚动条。 */
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -91,5 +93,7 @@ const themeOverrides = computed(() => {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* 阻止滚动到顶/底时的橡皮筋把滚动条「顶」出来，避免 phantom 滚动条 */
+  overscroll-behavior-y: contain;
 }
 </style>
