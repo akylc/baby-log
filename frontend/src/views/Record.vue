@@ -124,6 +124,36 @@
         </div>
       </template>
 
+      <template v-else-if="type === 'supplement'">
+        <div class="field">
+          <label>补剂名称<span class="req">*</span></label>
+          <n-input v-model:value="supplementName" placeholder="如 维生素D、DHA" />
+          <div class="hist" v-if="supplementPresets.length">
+            <span class="hist-cap">常见补剂（点击填入）</span>
+            <span
+              v-for="p in supplementPresets"
+              :key="p"
+              class="tag preset"
+              @click="supplementName = p"
+            >{{ p }}</span>
+          </div>
+          <div class="hist" v-if="hist.supplement_name.length">
+            <span class="hist-cap">最近（长按删除）</span>
+            <span
+              v-for="h in hist.supplement_name"
+              :key="h"
+              class="tag"
+              @click="fillVal('supplement_name', h)"
+              @touchstart.passive="onTagPressStart('supplement_name', h)"
+              @touchend="onTagPressEnd"
+              @touchmove="onTagPressEnd"
+              @touchcancel="onTagPressEnd"
+              @contextmenu.prevent="askDelete('supplement_name', h)"
+            >{{ h }}</span>
+          </div>
+        </div>
+      </template>
+
       <template v-else-if="type === 'sleep'">
         <div class="field">
           <label>入睡时间<span class="req">*</span></label>
@@ -197,12 +227,13 @@ function goHome() {
   router.replace('/')
 }
 
-type RecType = 'breast' | 'formula' | 'food' | 'bottle' | 'sleep' | 'diaper'
+type RecType = 'breast' | 'formula' | 'food' | 'bottle' | 'supplement' | 'sleep' | 'diaper'
 const types = [
   { value: 'breast', label: '母乳', icon: '🤱' },
   { value: 'formula', label: '配方奶', icon: '🥛' },
-  { value: 'bottle', label: '瓶喂', icon: '🍼' },
+  { value: 'bottle', label: '瓶喂母乳', icon: '🍼' },
   { value: 'food', label: '辅食', icon: '🍚' },
+  { value: 'supplement', label: '营养补剂', icon: '💊' },
   { value: 'sleep', label: '睡眠', icon: '😴' },
   { value: 'diaper', label: '换尿布', icon: '💩' },
 ]
@@ -211,12 +242,14 @@ const diaperOpts = [
   { value: 'poo', label: '便' },
   { value: 'both', label: '尿+便' },
 ]
+// 营养补剂常见快捷选项（点击填入补剂名称，非历史记录）
+const supplementPresets = ['维生素D', '维生素AD', 'DHA', '钙', '铁', '锌', '益生菌', '鱼油']
 
 // 记住上次选择的记录类型（仅类型，不带入数据）——存浏览器 localStorage
 function loadLastType(): RecType {
   try {
     const v = localStorage.getItem('ml_last_type')
-    if (v === 'breast' || v === 'formula' || v === 'bottle' || v === 'food' || v === 'sleep' || v === 'diaper') return v
+    if (v === 'breast' || v === 'formula' || v === 'bottle' || v === 'food' || v === 'supplement' || v === 'sleep' || v === 'diaper') return v
   } catch {
     /* 忽略存储异常 */
   }
@@ -402,6 +435,7 @@ const sleepDurText = computed(() => {
 })
 const amount = ref<number | null>(null)
 const foodName = ref('')
+const supplementName = ref('')
 const note = ref('')
 const occurredTs = ref(Date.now())
 const loading = ref(false)
@@ -414,6 +448,7 @@ const hist = reactive<Record<string, string[]>>({
   breast_right: getHistory('breast_right'),
   milk_amount: getHistory('milk_amount'),
   food_name: getHistory('food_name'),
+  supplement_name: getHistory('supplement_name'),
 })
 function recordHist(key: string, val: number | string | null) {
   if (val === null || val === undefined || val === '') return
@@ -470,6 +505,7 @@ function fillVal(key: string, val: string) {
   else if (key === 'breast_right') rightDuration.value = Number(val)
   else if (key === 'milk_amount') amount.value = Number(val)
   else if (key === 'food_name') foodName.value = val
+  else if (key === 'supplement_name') supplementName.value = val
 }
 
 async function reload() {
@@ -538,6 +574,18 @@ async function submit() {
       }
       recordHist('food_name', foodName.value.trim())
       await createFeeding({ babyId: currentBaby.value!.id, type: 'food', food_name: foodName.value.trim(), note: note.value || null, occurred_at: occurredAt.value })
+    } else if (type.value === 'supplement') {
+      const name = supplementName.value.trim()
+      if (!name) {
+        message.warning('请填写补剂名称')
+        loading.value = false
+        return
+      }
+      // 命中常见补剂（点击常见补剂即可填入，无需再堆进「最近」标签）
+      if (!supplementPresets.includes(name)) {
+        recordHist('supplement_name', name)
+      }
+      await createFeeding({ babyId: currentBaby.value!.id, type: 'supplement', supplement_name: name, note: note.value || null, occurred_at: occurredAt.value })
     } else if (type.value === 'sleep') {
       if (!sleepStart.value) {
         message.warning('请填写入睡时间')

@@ -1,6 +1,6 @@
 import { post, put, del } from './client'
 
-export type FeedType = 'breast' | 'formula' | 'food' | 'bottle'
+export type FeedType = 'breast' | 'formula' | 'food' | 'bottle' | 'supplement'
 
 export interface Feeding {
   id: number
@@ -12,6 +12,7 @@ export interface Feeding {
   left_duration_min: number | null
   right_duration_min: number | null
   food_name: string | null
+  supplement_name: string | null
   note: string | null
   occurred_at: string
 }
@@ -24,6 +25,7 @@ export function createFeeding(p: {
   left_duration_min?: number | null
   right_duration_min?: number | null
   food_name?: string | null
+  supplement_name?: string | null
   note?: string | null
   occurred_at?: string
   babyId?: number
@@ -46,6 +48,7 @@ export function updateFeeding(
     right_duration_min?: number | null
     amount_ml?: number | null
     food_name?: string | null
+    supplement_name?: string | null
     note?: string | null
     occurred_at?: string
   },

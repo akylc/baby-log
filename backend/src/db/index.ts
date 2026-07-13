@@ -33,13 +33,14 @@ CREATE TABLE IF NOT EXISTS babies (
 CREATE TABLE IF NOT EXISTS feedings (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   baby_id      INTEGER NOT NULL REFERENCES babies(id) ON DELETE CASCADE,
-  type         TEXT NOT NULL,          -- breast | formula | food | bottle
+  type         TEXT NOT NULL,          -- breast | formula | food | bottle | supplement
   side         TEXT,                   -- 废弃：原 左/右/左右 单选，现已改为分别记录时长
   amount_ml    INTEGER,                -- 配方奶/瓶喂奶量(毫升)
   duration_min INTEGER,                -- 废弃：原母乳总时长，已拆分为左右
   left_duration_min  INTEGER,          -- 母乳·左乳时长(分钟)
   right_duration_min INTEGER,          -- 母乳·右乳时长(分钟)
   food_name    TEXT,                   -- 辅食名称
+  supplement_name TEXT,                -- 营养补剂名称
   note         TEXT,
   occurred_at  TEXT NOT NULL,
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
@@ -82,3 +83,6 @@ if (!feedingCols.includes('right_duration_min')) db.exec('ALTER TABLE feedings A
 const sleepCols = (db.prepare('PRAGMA table_info(sleeps)').all() as { name: string }[]).map((c) => c.name)
 if (!sleepCols.includes('sleep_start')) db.exec('ALTER TABLE sleeps ADD COLUMN sleep_start TEXT')
 if (!sleepCols.includes('sleep_end')) db.exec('ALTER TABLE sleeps ADD COLUMN sleep_end TEXT')
+
+// 迁移：feedings 表加 supplement_name（新增「营养补剂」记录类型）
+if (!feedingCols.includes('supplement_name')) db.exec('ALTER TABLE feedings ADD COLUMN supplement_name TEXT')

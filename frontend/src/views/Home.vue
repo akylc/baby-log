@@ -464,7 +464,10 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
       title = `配方奶 ${f.amount_ml ?? 0}ml`
     } else if (f.type === 'bottle') {
       icon = '🍼'
-      title = `瓶喂 ${f.amount_ml ?? 0}ml`
+      title = `瓶喂母乳 ${f.amount_ml ?? 0}ml`
+    } else if (f.type === 'supplement') {
+      icon = '💊'
+      title = `营养补剂 ${f.supplement_name || ''}`.trim()
     } else {
       icon = '🍚'
       title = `辅食 ${f.food_name || ''}`.trim()
@@ -488,8 +491,9 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
   const typeLabel: Record<string, string> = {
     breast: '母乳',
     formula: '配方奶',
-    bottle: '瓶喂',
+    bottle: '瓶喂母乳',
     food: '辅食',
+    supplement: '营养补剂',
     sleep: '睡眠',
     diaper: '换尿布',
   }

@@ -10,7 +10,7 @@ const feedingRoutes: FastifyPluginAsync = async (fastify) => {
     const baby = getBabyByUser(uid, b?.babyId ? Number(b.babyId) : undefined)
     if (!baby) return reply.code(404).send(fail('请先在「我的」中创建宝宝'))
     const type = String(b?.type || '')
-    if (!['breast', 'formula', 'food', 'bottle'].includes(type)) return reply.code(400).send(fail('喂养类型不合法'))
+    if (!['breast', 'formula', 'food', 'bottle', 'supplement'].includes(type)) return reply.code(400).send(fail('喂养类型不合法'))
     // 核心数据必填校验
     if (type === 'breast') {
       const l = numOrNull(b?.left_duration_min)
@@ -21,11 +21,13 @@ const feedingRoutes: FastifyPluginAsync = async (fastify) => {
       if (!a || a <= 0) return reply.code(400).send(fail('请填写奶量'))
     } else if (type === 'food') {
       if (!b?.food_name || !String(b.food_name).trim()) return reply.code(400).send(fail('请填写辅食名称'))
+    } else if (type === 'supplement') {
+      if (!b?.supplement_name || !String(b.supplement_name).trim()) return reply.code(400).send(fail('请填写补剂名称'))
     }
     const occurred_at = b?.occurred_at ? String(b.occurred_at) : localNow()
     const info = db.prepare(
-      `INSERT INTO feedings(baby_id,type,side,amount_ml,duration_min,left_duration_min,right_duration_min,food_name,note,occurred_at)
-       VALUES(?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO feedings(baby_id,type,side,amount_ml,duration_min,left_duration_min,right_duration_min,food_name,supplement_name,note,occurred_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
     ).run(
       baby.id,
       type,
@@ -35,6 +37,7 @@ const feedingRoutes: FastifyPluginAsync = async (fastify) => {
       numOrNull(b?.left_duration_min),
       numOrNull(b?.right_duration_min),
       b?.food_name ?? null,
+      b?.supplement_name ?? null,
       b?.note ?? null,
       occurred_at,
     )
@@ -85,6 +88,8 @@ const feedingRoutes: FastifyPluginAsync = async (fastify) => {
       if (b?.amount_ml !== undefined) { sets.push('amount_ml=?'); vals.push(numOrNull(b.amount_ml)) }
     } else if (t === 'food') {
       if (b?.food_name !== undefined) { sets.push('food_name=?'); vals.push(b.food_name ?? null) }
+    } else if (t === 'supplement') {
+      if (b?.supplement_name !== undefined) { sets.push('supplement_name=?'); vals.push(b.supplement_name ?? null) }
     }
     if (b?.note !== undefined) { sets.push('note=?'); vals.push(b.note ?? null) }
     if (b?.occurred_at) { sets.push('occurred_at=?'); vals.push(String(b.occurred_at)) }
