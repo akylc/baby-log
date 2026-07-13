@@ -107,11 +107,11 @@ const themeOverrides = computed(() => {
   box-shadow: 0 0 24px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   /* 状态栏安全区：仅顶部预留，把内容推到状态栏之下，避免与状态栏重叠。
-     底部安全区在此统一预留一次（所有页面通用，含首页 build-info / 各页底部内容），
-     页面内容自身不要再重复加 safe-area-inset-bottom，否则既留空过大，又会让
-     滚动容器被多算一截而在 iOS 独立模式下冒出 phantom 滚动条。 */
+     底部安全区【不再】在此预留——外壳是 overflow:hidden 的非滚动容器，若在这
+     里加 padding-bottom，底部那条安全区会永远是一块死空白，内容永远到不了屏幕
+     最底部（iOS 主屏书签独立模式下看起来就像「被安全区遮挡了内容」）。底部安全
+     区改由下方 .page-area 滚动容器承担（见 .page-area 注释）。 */
   padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .page-area {
   flex: 1;
@@ -120,6 +120,11 @@ const themeOverrides = computed(() => {
   -webkit-overflow-scrolling: touch;
   /* 阻止滚动到顶/底时的橡皮筋把滚动条「顶」出来，避免 phantom 滚动条 */
   overscroll-behavior-y: contain;
+  /* 底部安全区：预留在「滚动容器自身」而非外层壳。这样内容可以一直滚动到屏幕
+     最底部、进入底部安全区（滚动时部分内容会在 Home 指示条之下可见），滚动到最
+     底时最后一条才停在 Home 指示条之上，既不被永久遮挡、也不与指示条重叠。预留
+     放在滚动容器上是规避 iOS 独立模式 phantom 滚动条的关键（不要放到内部子元素）。 */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 /* 版本过低弹框内容 */
 .vs-text {
