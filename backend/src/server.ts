@@ -77,11 +77,12 @@ fastify.addHook('preHandler', async (req, reply) => {
     !url.startsWith('/api/health')
   ) {
     const clientVersion = (req.headers['x-app-version'] as string) || ''
-    if (clientVersion && cmpVersion(clientVersion, APP_VERSION) !== 0) {
-      const low = cmpVersion(clientVersion, APP_VERSION) < 0
+    // 仅当「前端版本低于后端」时拒绝并提示刷新（用户停留在旧前端，需加载新版本）；
+    // 前端版本 >= 后端（如前端先发版、后端尚未重启）一律放行，避免误报「当前版本过低」。
+    if (clientVersion && cmpVersion(clientVersion, APP_VERSION) < 0) {
       return reply.code(200).send({
         code: 2,
-        message: low ? '当前版本过低，请刷新页面' : '后端版本过低，请刷新页面',
+        message: '当前版本过低，请刷新页面',
         data: { serverVersion: APP_VERSION, clientVersion },
       })
     }
