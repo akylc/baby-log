@@ -19,6 +19,35 @@ declare module 'fastify' {
   }
 }
 
+// 后端版本号：构建时由 tsup define 注入（与前端 VITE_APP_VERSION 同源：根 package.json version）
+const APP_VERSION = process.env.APP_VERSION || '0.0.0'
+
+// 静态资源缓存策略：
+// - HTML（index.html 及 SPA 回退页）禁止缓存，保证发版后用户始终拿到最新页面；
+// - 其余静态资源（JS/CSS/图片/字体等，通常是带 hash 的文件名）长缓存 + immutable，减少重复请求。
+function setCacheHeaders(res: any, filePath: string) {
+  const ext = path.extname(filePath).toLowerCase()
+  if (ext === '.html') {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Expires', '0')
+  } else {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+  }
+}
+
+// 简单语义化版本比较：a<b 返回 -1，a===b 返回 0，a>b 返回 1
+function cmpVersion(a: string, b: string): number {
+  const pa = a.split('.').map((n) => parseInt(n, 10) || 0)
+  const pb = b.split('.').map((n) => parseInt(n, 10) || 0)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] || 0
+    const y = pb[i] || 0
+    if (x !== y) return x < y ? -1 : 1
+  }
+  return 0
+}
+
 const fastify = Fastify({ logger: true })
 
 // 鉴权前置钩子：除 /api/auth/ 与 /api/health 外的所有 /api 请求需携带有效 token
@@ -37,6 +66,28 @@ fastify.addHook('preHandler', async (req, reply) => {
   }
 })
 
+// 版本握手校验：除 /api/auth/ 与 /api/health 外的所有 /api 业务请求，
+// 前端须携带 X-App-Version 头；与后端版本不一致则拒绝返回数据（code:2），
+// 提示前端「当前版本过低，请刷新」，避免项目更新后前后端数据不一致。
+fastify.addHook('preHandler', async (req, reply) => {
+  const url = req.url
+  if (
+    url.startsWith('/api/') &&
+    !url.startsWith('/api/auth/') &&
+    !url.startsWith('/api/health')
+  ) {
+    const clientVersion = (req.headers['x-app-version'] as string) || ''
+    if (clientVersion && cmpVersion(clientVersion, APP_VERSION) !== 0) {
+      const low = cmpVersion(clientVersion, APP_VERSION) < 0
+      return reply.code(200).send({
+        code: 2,
+        message: low ? '当前版本过低，请刷新页面' : '后端版本过低，请刷新页面',
+        data: { serverVersion: APP_VERSION, clientVersion },
+      })
+    }
+  }
+})
+
 async function main() {
   // 前端构建产物：根路径托管
   await fastify.register(fastifyStatic, {
@@ -44,6 +95,7 @@ async function main() {
     prefix: '/',
     wildcard: false,
     index: 'index.html',
+    setHeaders: setCacheHeaders,
   })
 
   // 业务路由

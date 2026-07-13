@@ -12,6 +12,25 @@
             </router-view>
           </main>
         </div>
+
+        <!-- 版本过低：不可关闭的弹框，强制刷新以加载最新版本，避免前后端数据不一致 -->
+        <n-modal
+          v-model:show="versionStale"
+          preset="card"
+          title="⚠️ 当前版本过低"
+          :closable="false"
+          :mask-closable="false"
+          :close-on-esc="false"
+          style="max-width: 360px"
+        >
+          <p class="vs-text">检测到前后端版本不一致，请刷新页面以加载最新版本，避免数据异常。</p>
+          <p class="vs-ver" v-if="clientVersion || serverVersion">
+            当前版本 v{{ clientVersion }} · 最新版本 v{{ serverVersion }}
+          </p>
+          <template #action>
+            <n-button type="primary" block size="large" @click="reloadPage">刷新页面</n-button>
+          </template>
+        </n-modal>
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
@@ -19,10 +38,16 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { darkTheme, zhCN, dateZhCN } from 'naive-ui'
+import { darkTheme, zhCN, dateZhCN, NModal, NButton } from 'naive-ui'
 import { isDark } from '@/utils/theme'
+import { versionStale, serverVersion, clientVersion } from '@/utils/version'
 
 const uiTheme = computed(() => (isDark.value ? darkTheme : null))
+
+// 版本过低弹框：点击刷新按钮强制重新加载页面，拉取最新前端（版本与后端对齐）
+function reloadPage() {
+  location.reload()
+}
 
 const themeOverrides = computed(() => {
   const common = {
@@ -95,5 +120,17 @@ const themeOverrides = computed(() => {
   -webkit-overflow-scrolling: touch;
   /* 阻止滚动到顶/底时的橡皮筋把滚动条「顶」出来，避免 phantom 滚动条 */
   overscroll-behavior-y: contain;
+}
+/* 版本过低弹框内容 */
+.vs-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-2);
+  margin: 0;
+}
+.vs-ver {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 10px 0 0;
 }
 </style>

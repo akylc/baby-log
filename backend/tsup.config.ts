@@ -1,4 +1,12 @@
 import { defineConfig } from 'tsup'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath, URL } from 'node:url'
+
+// 读取仓库根 package.json 的 version 作为唯一版本来源，
+// 注入后端构建产物（与前端 VITE_APP_VERSION 同源），用于前后端版本握手校验。
+const rootPkg = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf-8'),
+)
 
 export default defineConfig({
   entry: { server: 'src/server.ts' },
@@ -14,6 +22,11 @@ export default defineConfig({
   // 变成 require("sqlite")（不存在的包）。用负向前瞻排除 node: 内置模块，让 esbuild 按内置模块
   // 外置并保留 node: 前缀（如 require("node:sqlite")）。
   noExternal: [/(?!node:)/],
+  // 构建时注入后端版本号（与前端 VITE_APP_VERSION 同源：根 package.json version），
+  // 用于 /api 业务路由的版本握手校验。esbuild 会把 `process.env.APP_VERSION` 字面量直接替换为字符串。
+  define: {
+    'process.env.APP_VERSION': JSON.stringify(rootPkg.version),
+  },
   // 构建完成后把前端产物复制到 dist/public，保证 dist 完整自包含、可跨平台直接部署
   onSuccess: 'node ./scripts/copy-frontend.mjs',
 })

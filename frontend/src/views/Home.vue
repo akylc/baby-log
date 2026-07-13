@@ -72,8 +72,16 @@
     </n-empty>
 
     <section class="timeline" v-else>
-      <div class="sec-title">📅 {{ viewingToday ? '近 7 天' : '近 7 天（截至 ' + selectedDateLabel + '）' }}</div>
-      <div v-if="timeline.length === 0" class="no-data">还没有记录，点右下角「＋」开始吧 👉</div>
+      <div class="sec-head">
+        <div class="sec-title">📅 {{ viewingToday ? '近 7 天' : '近 7 天（截至 ' + selectedDateLabel + '）' }}</div>
+        <button class="filter-btn" :class="{ active: isFilterActive }" type="button" @click="filterShow = true" aria-label="筛选记录类型">
+          <svg class="filter-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          <span v-if="isFilterActive" class="filter-dot"></span>
+        </button>
+      </div>
+      <div v-if="timeline.length === 0" class="no-data">{{ isFilterActive ? '当前筛选条件下没有记录' : '还没有记录，点右下角「＋」开始吧 👉' }}</div>
       <template v-for="grp in dayGroups" :key="grp.date">
         <div class="day-head">
           <span class="day-d">{{ grp.label }}</span>
@@ -274,6 +282,39 @@
       </div>
     </div>
     </Transition>
+
+    <!-- 记录类型筛选弹层 -->
+    <Transition name="sheet">
+      <div class="sheet-mask" v-if="filterShow" @click="filterShow = false">
+        <div class="sheet filter-sheet" @click.stop>
+          <div class="sheet-hd">
+            <span>筛选记录类型</span>
+            <button class="sheet-x" type="button" @click="filterShow = false" aria-label="关闭">×</button>
+          </div>
+          <div class="sheet-body filter-body">
+            <button
+              v-for="opt in FILTER_OPTIONS"
+              :key="opt.value"
+              type="button"
+              class="filter-row"
+              :class="{ on: typeFilter.includes(opt.value) }"
+              @click="toggleType(opt.value)"
+            >
+              <span class="fi">{{ opt.icon }}</span>
+              <span class="fl">{{ opt.label }}</span>
+              <span class="fcheck">{{ typeFilter.includes(opt.value) ? '✓' : '' }}</span>
+            </button>
+          </div>
+          <div class="filter-actions">
+            <div class="filter-actions-row">
+              <n-button @click="selectAll">全选</n-button>
+              <n-button :disabled="typeFilter.length === 0" @click="clearAll">取消选中</n-button>
+            </div>
+            <n-button block type="primary" @click="filterShow = false">完成</n-button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -304,6 +345,57 @@ const { currentBaby, babies } = storeToRefs(babyStore)
 // 版本号统一取自仓库根 package.json 的 version（注入为 VITE_APP_VERSION）
 const appVersion = (import.meta.env as any).VITE_APP_VERSION || '—'
 const buildTime = __BUILD_TIME__
+
+// 记录类型筛选：近 7 天列表按记录类型过滤
+const ALL_TYPES = ['breast', 'formula', 'bottle', 'food', 'supplement', 'sleep', 'diaper']
+const FILTER_OPTIONS = [
+  { value: 'breast', label: '母乳', icon: '🤱' },
+  { value: 'formula', label: '配方奶', icon: '🥛' },
+  { value: 'bottle', label: '瓶喂母乳', icon: '🍼' },
+  { value: 'food', label: '辅食', icon: '🍚' },
+  { value: 'supplement', label: '营养补剂', icon: '💊' },
+  { value: 'sleep', label: '睡眠', icon: '😴' },
+  { value: 'diaper', label: '换尿布', icon: '💩' },
+]
+const FILTER_KEY = 'ml_type_filter'
+function loadFilter(): string[] {
+  try {
+    const raw = localStorage.getItem(FILTER_KEY)
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr) && arr.every((v) => ALL_TYPES.includes(v))) return arr
+    }
+  } catch {
+    /* 忽略存储异常 */
+  }
+  return ALL_TYPES.slice()
+}
+const typeFilter = ref<string[]>(loadFilter())
+const isFilterActive = computed(() => typeFilter.value.length < ALL_TYPES.length)
+const filterShow = ref(false)
+function saveFilter() {
+  try {
+    localStorage.setItem(FILTER_KEY, JSON.stringify(typeFilter.value))
+  } catch {
+    /* 忽略存储异常 */
+  }
+}
+function toggleType(v: string) {
+  if (typeFilter.value.includes(v)) {
+    typeFilter.value = typeFilter.value.filter((x) => x !== v)
+  } else {
+    typeFilter.value = [...typeFilter.value, v]
+  }
+  saveFilter()
+}
+function selectAll() {
+  typeFilter.value = ALL_TYPES.slice()
+  saveFilter()
+}
+function clearAll() {
+  typeFilter.value = []
+  saveFilter()
+}
 
 const today = ref(todayStr())
 // 日期切换：按选中日期查看历史数据
@@ -386,7 +478,34 @@ const stats = ref<DayStats>({
 const feedings = ref<Feeding[]>([])
 const sleeps = ref<Sleep[]>([])
 const diapers = ref<Diaper[]>([])
+// 原始拉取数据（未过滤），供按类型筛选时复用，无需重新请求
+const allFeedings = ref<Feeding[]>([])
+const allSleeps = ref<Sleep[]>([])
+const allDiapers = ref<Diaper[]>([])
+const prevFeedings = ref<Feeding[]>([])
+const prevSleeps = ref<Sleep[]>([])
+const prevDiapers = ref<Diaper[]>([])
 const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: { text: string; kind: 'now' | 'last' }[]; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any; anchorTs: number }[]>([])
+
+// 按当前类型筛选重建展示数据（feedings/sleeps/diapers 与「距上次」下界均受筛选影响），
+// 切换筛选时调用，无需重新请求后端。
+function rebuild() {
+  const set = new Set(typeFilter.value)
+  feedings.value = set.size === ALL_TYPES.length ? allFeedings.value : allFeedings.value.filter((r) => set.has(r.type))
+  sleeps.value = set.has('sleep') ? allSleeps.value : []
+  diapers.value = set.has('diaper') ? allDiapers.value : []
+  const prevDayLastByType: Record<string, number> = {}
+  const bump = (key: string, ms: number) => {
+    if (prevDayLastByType[key] == null || ms > prevDayLastByType[key]) prevDayLastByType[key] = ms
+  }
+  if (set.has('sleep')) prevSleeps.value.forEach((r) => bump('sleep', sleepAnchor(r)))
+  if (set.has('diaper')) prevDiapers.value.forEach((r) => bump('diaper', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
+  prevFeedings.value.forEach((r) => {
+    if (set.has(r.type)) bump(r.type, new Date(r.occurred_at.replace(' ', 'T')).getTime())
+  })
+  buildTimeline(prevDayLastByType)
+}
+watch(typeFilter, rebuild)
 
 const refreshing = ref(false)
 
@@ -418,18 +537,13 @@ async function refresh() {
       listDiapers({ date: prevDate, babyId: bid }),
     ])
     stats.value = s
-    feedings.value = f
-    sleeps.value = sl
-    diapers.value = d
-    // 前一天各类型最后一条记录（7 天窗口之外，作为该类型最早项的「距上次」下界）
-    const prevDayLastByType: Record<string, number> = {}
-    const bump = (key: string, ms: number) => {
-      if (prevDayLastByType[key] == null || ms > prevDayLastByType[key]) prevDayLastByType[key] = ms
-    }
-    pf.forEach((r) => bump(r.type, new Date(r.occurred_at.replace(' ', 'T')).getTime()))
-    ps.forEach((r) => bump('sleep', sleepAnchor(r)))
-    pd.forEach((r) => bump('diaper', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
-    buildTimeline(prevDayLastByType)
+    allFeedings.value = f
+    allSleeps.value = sl
+    allDiapers.value = d
+    prevFeedings.value = pf
+    prevSleeps.value = ps
+    prevDiapers.value = pd
+    rebuild()
   } catch (e: any) {
     message.error(e?.message || '加载失败')
   } finally {
@@ -1006,6 +1120,51 @@ useRevealRefresh(refresh)
   margin-bottom: 10px;
   color: var(--text-1);
 }
+.sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sec-head .sec-title {
+  margin-bottom: 0;
+}
+.filter-btn {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--tag-border);
+  background: var(--card);
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.filter-btn:active {
+  background: var(--card-pink);
+}
+.filter-btn.active {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--card-pink);
+}
+.filter-btn .filter-icon {
+  flex: none;
+}
+.filter-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 1.5px solid var(--card);
+}
 .day-head {
   display: flex;
   align-items: baseline;
@@ -1339,6 +1498,73 @@ useRevealRefresh(refresh)
   gap: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border-soft);
+}
+.filter-sheet {
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+.filter-body {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.filter-row:active {
+  background: var(--card-pink);
+}
+.filter-row.on {
+  border-color: var(--primary);
+  background: var(--card-pink);
+}
+.filter-row .fi {
+  font-size: 20px;
+  flex: none;
+}
+.filter-row .fl {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+.filter-row .fcheck {
+  flex: none;
+  width: 20px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.filter-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  flex: none;
+}
+.filter-actions-row {
+  display: flex;
+  gap: 10px;
+}
+.filter-actions-row :deep(.n-button) {
+  flex: 1 1 0;
+  min-width: 0;
 }
 .sleep-dur-auto {
   font-size: 18px;
