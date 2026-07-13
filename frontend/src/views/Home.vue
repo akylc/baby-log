@@ -479,9 +479,16 @@ function buildTimeline(prevDayLastByType: Record<string, string>) {
     list.forEach((it, k) => {
       const cur = new Date(it.sortKey.replace(' ', 'T')).getTime()
       const gaps: { text: string; kind: 'now' | 'last' }[] = []
+      // 「距现在」基准：睡眠以「醒来时间」为准，其余以记录时间为准
+      let nowBase = cur
+      if (it.kind === 'sleep') {
+        const s = it.raw as { sleep_end?: string | null; duration_min?: number }
+        if (s.sleep_end) nowBase = new Date(s.sleep_end).getTime()
+        else nowBase = cur + (s.duration_min || 0) * 60000 // 进行中（无醒来时间）回退到入睡时间，即「已睡多久」
+      }
       // 距现在：同类型最新一条即显示（不限日期，便于随时查看「距上次做这件事过了多久」）
       if (k === 0) {
-        gaps.push({ text: '距现在 ' + fmtGap(Math.max(0, Math.round((now - cur) / 60000))), kind: 'now' })
+        gaps.push({ text: '距现在 ' + fmtGap(Math.max(0, Math.round((now - nowBase) / 60000))), kind: 'now' })
       }
       // 距上次：相对同类型时间上更早的一条（窗口内 list[k+1]，否则前一天 prevDayLastByType）
       let olderTs: number | null = null
