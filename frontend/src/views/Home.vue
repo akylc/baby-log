@@ -319,7 +319,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onActivated } from 'vue'
+import { ref, computed, watch, onMounted, onActivated, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { storeToRefs } from 'pinia'
@@ -944,6 +944,21 @@ onActivated(() => {
 })
 // 从后台切回前台时刷新当前页面
 useRevealRefresh(refresh)
+
+// —— 弹窗滚动锁定 ——
+// iOS 上弹窗（.sheet-mask 为 fixed 遮罩）内的滑动会被路由到背景滚动容器
+// .page-area，造成「弹窗滑、背景也跟着滚」的穿透。任一弹窗打开时给 .page-area
+// 加 scroll-locked（overflow:hidden）锁住背景，关闭即恢复。三个弹窗变量恒在
+// 此处之前已定义，故可安全引用。
+const pageAreaEl = ref<HTMLElement | null>(null)
+function syncScrollLock() {
+  const el = pageAreaEl.value || document.querySelector<HTMLElement>('.page-area')
+  if (el) pageAreaEl.value = el
+  el?.classList.toggle('scroll-locked', filterShow.value || switchShow.value || editShow.value)
+}
+onMounted(syncScrollLock)
+watch([filterShow, switchShow, editShow], syncScrollLock)
+onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
 </script>
 
 <style scoped>
@@ -1366,6 +1381,8 @@ useRevealRefresh(refresh)
   margin-bottom: 16px;
   max-height: 60vh;
   overflow-y: auto;
+  /* 防止弹窗自身滚到顶/底时继续滑动穿透到背景 .page-area（与背景锁定配合双保险） */
+  overscroll-behavior-y: contain;
 }
 .ef {
   display: flex;

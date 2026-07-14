@@ -126,6 +126,12 @@ const themeOverrides = computed(() => {
      放在滚动容器上是规避 iOS 独立模式 phantom 滚动条的关键（不要放到内部子元素）。 */
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+/* 弹窗打开时由页面内部动态加上：锁住背景滚动容器，避免 iOS 上弹窗内滑动
+   穿透（scroll chaining）导致背后的 .page-area 一起滚动。锁住后背景定格，
+   关闭弹窗移除该类即恢复，滚动位置由浏览器保留、不会跳动。 */
+.page-area.scroll-locked {
+  overflow: hidden;
+}
 /* 版本过低弹框内容 */
 .vs-text {
   font-size: 14px;
