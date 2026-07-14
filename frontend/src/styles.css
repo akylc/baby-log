@@ -45,6 +45,16 @@ body {
   --avatar-bg: #ffe3ec;
   --login-top: #ffe3ec;
   --login-bot: #e9ebf0;
+  /* 首页时间线各记录类型的主题色（仅用于 icon 方块上色） */
+  --t-breast: #ff7aa2;
+  --t-formula: #4aa3ff;
+  --t-bottle: #2bc4c4;
+  --t-food: #34c759;
+  --t-supplement: #a06bff;
+  --t-sleep: #6c7bd1;
+  --t-diaper: #f0a93b;
+  /* icon 方块按类型上色的混合比例：亮色卡片为白，比例低才不刺眼 */
+  --icon-tint: 16%;
 }
 html.dark {
   --bg: #15161a;
@@ -69,6 +79,16 @@ html.dark {
   --avatar-bg: #2a1f26;
   --login-top: #2a1f26;
   --login-bot: #0f1013;
+  /* 首页时间线各记录类型的主题色（仅用于 icon 方块上色，暗色略提亮） */
+  --t-breast: #ff8fb0;
+  --t-formula: #6bb4ff;
+  --t-bottle: #4fd6d6;
+  --t-food: #5ad97e;
+  --t-supplement: #b78cff;
+  --t-sleep: #8a98e0;
+  --t-diaper: #ffc06b;
+  /* 暗色模式卡片偏深，需更高比例 icon 着色才看得清 */
+  --icon-tint: 30%;
 }
 
 /* 修复 iOS Safari 点击输入框自动放大页面：

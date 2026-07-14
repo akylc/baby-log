@@ -87,7 +87,7 @@
           <span class="day-d">{{ grp.label }}</span>
           <span class="day-sum" v-if="grp.summary">{{ grp.summary }}</span>
         </div>
-        <div v-for="(it, i) in grp.items" :key="grp.date + '-' + i" class="tl-item" @click="openEdit(it)">
+        <div v-for="(it, i) in grp.items" :key="grp.date + '-' + i" class="tl-item" :class="'tl-' + it.type" @click="openEdit(it)">
           <div class="tl-icon">{{ it.icon }}</div>
           <div class="tl-body">
             <div class="tl-title">{{ it.title }}</div>
@@ -1234,11 +1234,20 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
 .tl-item:active {
   background: var(--card-pink);
 }
+/* 各记录类型主题色：仅作用于 icon 方块背景，整条记录保持中性卡片色 */
+.tl-breast { --tt: var(--t-breast); }
+.tl-formula { --tt: var(--t-formula); }
+.tl-bottle { --tt: var(--t-bottle); }
+.tl-food { --tt: var(--t-food); }
+.tl-supplement { --tt: var(--t-supplement); }
+.tl-sleep { --tt: var(--t-sleep); }
+.tl-diaper { --tt: var(--t-diaper); }
 .tl-icon {
   width: 38px;
   height: 38px;
   border-radius: 10px;
   background: var(--card-pink);
+  background: color-mix(in srgb, var(--tt) var(--icon-tint), var(--card));
   display: flex;
   align-items: center;
   justify-content: center;
