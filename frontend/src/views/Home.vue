@@ -615,6 +615,8 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
   for (const it of items) (byType[it.type] ||= []).push(it)
   for (const list of Object.values(byType)) {
     const label = typeLabel[list[0].type] || '记录'
+    // 睡眠的「距上次」表达为「距上次醒来」更贴合语义（本次入睡 − 上次醒来）
+    const lastLabel = list[0].type === 'sleep' ? '醒来' : label
     list.forEach((it, k) => {
       const gaps: { text: string; kind: 'now' | 'last' }[] = []
       // 距现在：以各类型「事件锚点」为准（睡眠优先用醒来时间，其余用记录时间）
@@ -632,7 +634,7 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
         if (prev != null) olderTs = prev
       }
       if (olderTs != null) {
-        gaps.push({ text: '距上次' + label + ' ' + fmtGap(Math.max(1, Math.round((it.gapStartTs - olderTs) / 60000))), kind: 'last' })
+        gaps.push({ text: '距上次' + lastLabel + ' ' + fmtGap(Math.max(1, Math.round((it.gapStartTs - olderTs) / 60000))), kind: 'last' })
       }
       it.gaps = gaps
     })
