@@ -17,9 +17,9 @@
   ① **更新版本号**：抬高根 package.json 的 `version`（用户未指定具体版本时按 semver 升 patch，如 0.0.11→0.0.12）；frontend/backend 的 package.json `version` 同步改，仅作一致性保留。
   ② `pnpm build`：把新版本内联进前后端产物（前端 `VITE_APP_VERSION` = vite define；后端 `APP_VERSION` = tsup define 字面量）。
   ③ `pnpm docker:build`（= `scripts/build-docker.mjs`）：自动读根 package.json 版本，以 `baby-log:v<版本>` 为 tag 构建（多阶段 node:24-alpine，仅 COPY `backend/dist`），并 `docker save` 导出 tar 到 `N:/应用/Docker/baby-log/baby-log-v<版本>.tar`（目录可用 env `DOCKER_TAR_DIR` 覆盖）。
-  ④ **提交推送（发版收尾必做）**：`git add` 工作树全部改动（至少三处 package.json 版本号 + 本次发版对应的代码改动）后 `git commit`（信息风格 `chore: 版本号升至 vX.Y.Z` 或对应 type），再 `git push origin main`。
+  ④ **提交推送（发版收尾必做）**：`git add` 工作树全部改动（至少三处 package.json 版本号 + 本次发版对应的代码改动 + `.workbuddy/memory/**` 记忆日记/约定）后 `git commit`（信息风格 `chore: 版本号升至 vX.Y.Z` 或对应 type），再 `git push origin main`。
   —— 即「发版」= 升版本 + 打包最新 docker + 提交推送，三者连做。
 - 版本号**唯一来源 = 根 package.json 的 version**；运行期版本来自内联进 dist 的代码。Docker 镜像**无 version LABEL**（`ARG VERSION`/`LABEL version`/`ENV APP_VERSION` 均已移除——LABEL 为纯元数据、运行版本由内联 dist 决定，Docker 层无法影响）。版本以镜像 tag `baby-log:v<版本>` 与 `/api/health` 为准。Node 24 部署。
 - 构建必须走 `pnpm docker:build`；裸 `docker build` 不带参数能成但绕过了版本读取脚本，禁止用于发版。
 - 部署：`docker load -i <tar>` 后 `docker run -d -p 26712:26712 -v <宿主机data>:/app/data baby-log:v<版本>`（`/app/data` 是 sqlite 库，必须挂卷持久化）。健康检查端点 = **`/api/health`**（返回 `{status,version,time}`），绝非 `/health`（后者被 SPA 回退成 index.html 壳）。
-- 注：日常代码改动仍遵守「git 提交习惯」——需用户显式指令才提交；唯有"发版"流程自带提交推送这最后一步。
+- 注：日常代码改动仍遵守「git 提交习惯」——需用户显式指令才提交；唯有"发版"流程自带提交推送这最后一步。**例外（记忆文件）**：项目记忆文件（`.workbuddy/memory/**`，含每日日记与 MEMORY.md）视为应主动提交物，不按"待指令才提交"处理——平时完成实质性工作后即主动 commit 记忆文件，发版时一并并入 ④ 的 `git add` 范围，避免日记长期遗留未提交。
