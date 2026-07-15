@@ -6,19 +6,32 @@
       <span style="width: 40px"></span>
     </header>
 
-    <div class="type-row" ref="typeRowRef" :class="{ sorting: sortMode }">
-      <button
-        v-for="(t, i) in orderedTypes"
-        :key="t.value"
-        :ref="(el) => setChipRef(el, i)"
-        :class="['type-btn', { active: type === t.value, dragging: dragging === i }]"
-        :style="chipStyle(i)"
-        @click="selectType(t.value)"
-      >
-        <span v-if="sortMode" class="grip" @pointerdown.stop="onChipPointerDown(i, $event)">⋮⋮⋮</span>
-        <span class="ti">{{ t.icon }}</span>{{ t.label }}
-      </button>
-      <button class="sort-toggle" type="button" @click="toggleSort">{{ sortMode ? '完成' : '排序' }}</button>
+    <div class="type-pick">
+      <div class="type-bar" :class="{ collapsed: !expanded && !sortMode, sorting: sortMode }" ref="typeRowRef">
+        <button
+          v-for="(t, i) in orderedTypes"
+          :key="t.value"
+          :ref="(el) => setChipRef(el, i)"
+          :class="['type-chip', { active: type === t.value, dragging: dragging === i }]"
+          :style="chipStyle(i)"
+          @click="selectType(t.value)"
+        >
+          <span class="ti">{{ t.icon }}</span><span class="tl">{{ t.label }}</span>
+          <span v-if="sortMode" class="grip" @pointerdown.stop="onChipPointerDown(i, $event)">⠿</span>
+        </button>
+        <button
+          v-if="expanded || sortMode"
+          class="sort-toggle"
+          type="button"
+          @click="sortMode ? finishSort() : openSort()"
+        >{{ sortMode ? '完成' : '排序' }}</button>
+      </div>
+      <div class="type-actions">
+        <button class="expand-btn" type="button" @click="toggleExpand">
+          <span>{{ expanded ? '收起' : '展开' }}</span>
+          <span class="chev" :class="{ up: expanded }">▾</span>
+        </button>
+      </div>
     </div>
 
     <section class="form">
@@ -340,88 +353,86 @@ function saveTypeOrder() {
   }
 }
 
-// 排序模式 + 拖拽重排（Pointer Events，鼠标/触摸通用）
+// 类型选择：折叠触发 → 展开网格选择；「排序」模式下在网格内拖拽重排（Pointer Events，鼠标/触摸通用）
+const expanded = ref(false)
 const sortMode = ref(false)
 const dragging = ref(-1)
 const dragDx = ref(0)
+const dragDy = ref(0)
 const targetIndex = ref(-1)
 const chipEls: any[] = []
 const typeRowRef = ref<HTMLElement | null>(null)
 let pointerStartX = 0
-let initialScrollLeft = 0
-const snap = { gap: 8, dragW: 0 }
+let pointerStartY = 0
 
 function setChipRef(el: any, i: number) {
   if (el) chipEls[i] = el
 }
+function toggleExpand() {
+  if (sortMode.value) {
+    finishSort() // 排序中再次点击折叠 → 视为完成排序
+    return
+  }
+  expanded.value = !expanded.value
+}
 function selectType(v: RecType) {
   if (sortMode.value) return // 排序模式下点击不切换类型
   type.value = v
+  expanded.value = false // 选完即收起
 }
-function toggleSort() {
+function openSort() {
+  expanded.value = true
+  sortMode.value = true
+}
+function finishSort() {
   if (sortMode.value) saveTypeOrder()
-  sortMode.value = !sortMode.value
-  if (!sortMode.value) {
-    dragging.value = -1
-    dragDx.value = 0
-    targetIndex.value = -1
-  }
+  sortMode.value = false
+  expanded.value = false
+  dragging.value = -1
+  dragDx.value = 0
+  dragDy.value = 0
+  targetIndex.value = -1
 }
 function onChipPointerDown(i: number, e: PointerEvent) {
   if (!sortMode.value) return
   e.preventDefault()
   dragging.value = i
   dragDx.value = 0
+  dragDy.value = 0
   targetIndex.value = i
   pointerStartX = e.clientX
-  initialScrollLeft = typeRowRef.value?.scrollLeft || 0
-  const rect = chipEls[i].getBoundingClientRect()
-  snap.dragW = rect.width
+  pointerStartY = e.clientY
   window.addEventListener('pointermove', onPointerMove)
   window.addEventListener('pointerup', onPointerUp)
   window.addEventListener('pointercancel', onPointerUp)
 }
 function onPointerMove(e: PointerEvent) {
-  // 计算 dx 时补偿容器滚动：被拖元素始终保持在手指位置下方
-  const scrollDelta = typeRowRef.value ? typeRowRef.value.scrollLeft - initialScrollLeft : 0
-  const dx = (e.clientX - pointerStartX) + scrollDelta
-  dragDx.value = dx
-
-  // 自动滚动：手指靠近边缘时让容器滚动，使溢出部分可见
-  if (typeRowRef.value) {
-    const rowRect = typeRowRef.value.getBoundingClientRect()
-    const edgeThreshold = 30
-    if (e.clientX < rowRect.left + edgeThreshold && typeRowRef.value.scrollLeft > 0) {
-      typeRowRef.value.scrollLeft -= 10
-    } else if (e.clientX > rowRect.right - edgeThreshold) {
-      typeRowRef.value.scrollLeft += 10
-    }
-  }
-
-  // 每帧从 DOM 读取实时位置（含 transform 偏移 + 容器滚动），避免静态 snap 过时
+  if (dragging.value < 0) return
+  dragDx.value = e.clientX - pointerStartX
+  dragDy.value = e.clientY - pointerStartY
+  // 每帧从 DOM 读取实时中心，找最近的其它格子作为插入目标（2D 最近邻，行列通吃）
   const liveRects = chipEls.map((el) => {
     const r = el.getBoundingClientRect()
-    return { left: r.left, width: r.width, center: r.left + r.width / 2 }
+    return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 }
   })
-  if (!liveRects.length || dragging.value < 0 || dragging.value >= liveRects.length) return
-
-  const draggedCenter = liveRects[dragging.value].center
-  const others: { idx: number; center: number }[] = []
-  liveRects.forEach((r, idx) => {
-    if (idx !== dragging.value) others.push({ idx, center: r.center })
-  })
-  others.sort((a, b) => a.center - b.center)
-  let insertAt = others.length
-  for (let k = 0; k < others.length; k++) {
-    if (draggedCenter < others[k].center) {
-      insertAt = k
-      break
-    }
+  if (!liveRects.length || dragging.value >= liveRects.length) return
+  // liveRects[dragging.value] 已经是 transform 之后的实时位置（getBoundingClientRect 含 transform），
+  // 不要再叠加 dragDx/dragDy，否则落点被放大一倍，跨行拖动会错位（如第三排拖到第二排却落到第一排）。
+  const cur = {
+    cx: liveRects[dragging.value].cx,
+    cy: liveRects[dragging.value].cy,
   }
-  const newOrder = order.value.slice()
-  const [moved] = newOrder.splice(dragging.value, 1)
-  newOrder.splice(insertAt, 0, moved)
-  targetIndex.value = newOrder.indexOf(moved)
+  let best = -1
+  let bestDist = Infinity
+  liveRects.forEach((r, idx) => {
+    if (idx === dragging.value) return
+    const d = Math.hypot(r.cx - cur.cx, r.cy - cur.cy)
+    if (d < bestDist) {
+      bestDist = d
+      best = idx
+    }
+  })
+  targetIndex.value = best
 }
 function onPointerUp() {
   window.removeEventListener('pointermove', onPointerMove)
@@ -437,21 +448,19 @@ function onPointerUp() {
   }
   dragging.value = -1
   dragDx.value = 0
+  dragDy.value = 0
   targetIndex.value = -1
   saveTypeOrder()
 }
 function chipStyle(i: number): Record<string, string> {
-  if (!sortMode.value || dragging.value === -1) return {}
-  if (dragging.value === i) {
-    return { transform: `translateX(${dragDx.value}px)`, 'z-index': '10', position: 'relative' }
+  if (sortMode.value && dragging.value === i) {
+    return {
+      transform: `translate(${dragDx.value}px, ${dragDy.value}px)`,
+      'z-index': '20',
+      position: 'relative',
+    }
   }
-  const d = dragging.value
-  const t = targetIndex.value
-  const inRange = d < t ? i > d && i <= t : i >= t && i < d
-  if (!inRange) return {}
-  const dir = d < t ? -1 : 1
-  const shift = dir * (snap.dragW + snap.gap)
-  return { transform: `translateX(${shift}px)` }
+  return {}
 }
 onBeforeUnmount(() => {
   window.removeEventListener('pointermove', onPointerMove)
@@ -723,89 +732,127 @@ async function submit() {
   justify-content: center;
   margin-left: -8px;
 }
-.type-row {
+.type-pick {
   display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+/* 折叠态：单行横向排列、可横向滑动（溢出可滑）；展开/排序态：自动换行向下展开 */
+.type-bar {
+  display: flex;
+  flex-wrap: nowrap;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 12px;
-  margin-bottom: 8px;
-  scrollbar-width: none; /* Firefox 隐藏滚动条 */
-  -ms-overflow-style: none; /* IE/旧 Edge 隐藏滚动条 */
+  overflow-y: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  padding: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-.type-row::-webkit-scrollbar {
-  display: none; /* WebKit（含移动端）隐藏滚动条，保留横向滑动 */
+.type-bar::-webkit-scrollbar {
+  display: none;
 }
-.type-btn {
+.type-bar:not(.collapsed) {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.type-chip {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 1px solid var(--border);
   background: var(--card);
   border-radius: 20px;
   padding: 8px 14px;
   font-size: 13px;
   color: var(--text-1);
-  display: flex;
-  align-items: center;
-  gap: 4px;
   cursor: pointer;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
 }
-.type-btn.active {
+.type-chip.active {
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);
 }
-.type-btn.active .grip {
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.15);
-}
-.type-btn.active .grip:active {
-  background: rgba(255, 255, 255, 0.30);
-}
-.ti {
+.type-chip .ti {
   font-size: 15px;
+  line-height: 1;
 }
-.type-row.sorting .type-btn {
-  transition: transform 0.18s ease;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  cursor: default;
-}
-.type-row.sorting .type-btn.dragging {
-  transition: none;
-  cursor: grabbing;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+.type-chip.dragging {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
   opacity: 0.95;
+  cursor: grabbing;
+  z-index: 20;
 }
 .grip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  font-size: 12px;
-  color: var(--text-2);
+  justify-content: center;
+  margin-left: 4px;
+  font-size: 15px;
   line-height: 1;
-  padding: 4px 3px;
-  margin-right: 4px;
-  margin-left: -6px;
+  color: var(--text-2);
+  padding: 4px 6px;
   border-radius: 6px;
   background: var(--border-soft);
   touch-action: none;
   cursor: grab;
-  transition: background 0.15s;
 }
-.grip:active {
-  background: var(--border);
+.type-chip.active .grip {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.2);
+}
+.type-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .sort-toggle {
-  flex: none;
   border: 1px dashed var(--border);
   background: transparent;
   border-radius: 20px;
-  padding: 8px 12px;
-  font-size: 12px;
+  padding: 8px 14px;
+  font-size: 13px;
   color: var(--text-2);
   cursor: pointer;
+  white-space: nowrap;
 }
 .sort-toggle:active {
   color: var(--primary-deep);
+}
+.expand-btn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.expand-btn:active {
+  color: var(--primary-deep);
+}
+.expand-btn .chev {
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+.expand-btn .chev.up {
+  transform: rotate(180deg);
 }
 .sleep-dur-auto {
   font-size: 18px;
