@@ -20,6 +20,7 @@
 - ⚠️ **杀旧后端进程**：本机常残留早期会话起的后端（占 26712、版本很旧）。当前 Bash 沙箱的 `kill` 报 "No such process"（进程不在沙箱 PID 命名空间），普通 `kill` 杀不掉；须用 **PowerShell 工具** `Stop-Process -Id <PID> -Force` 才能终止（bash 里调用 powershell 会被安全策略拦截，务必走 PowerShell 工具）。杀掉后 26712 才释放、新后端才能绑定。
 - **vite 探活写法**：本机有 HTTP 代理，curl 探本地必须 `--noproxy '*'`；且 `-o /dev/null` 配合 `-w` 偶尔报 `curl: (23) ... write of N bytes`（无害，http=200 即正常）。
 - vite dev 若报 `Transforming destructuring ... is not supported yet`，是 `optimizeDeps` 按过老 target 预构建依赖所致，已在 `vite.config.ts` 加 `optimizeDeps.esbuildOptions.target='es2022'`（与 build.target 对齐）修复。
+- ⚠️ **发版/升版本后必须重启前端 dev server**：`VITE_APP_VERSION` 由 `vite.config.ts` 的 `define` 在 **dev server 启动时**读取根 `package.json` 固化，HMR **不会**重新求值。若只重启了后端、没重启前端 dev server，前端仍带旧 `X-App-Version`，后端 `server.ts:83` 判定 `client < server` 返回 `code:2` → 前端弹「当前版本过低，请刷新」且**刷新页面无效**（刷新只是重载同一 dev server，版本不变）。现象：后端 `/api/health` 回新版本、刷新仍提示过低。修法：PowerShell `Stop-Process` 杀掉旧 vite 进程（5173 监听 PID），重启 `pnpm dev` 即对齐。（2026-07-15 用户反馈此坑）
 
 ## git 提交习惯（与用户约定）
 - 用户改完并浏览器验收 OK 后才让我 `git commit`；信息风格 `type: 中文描述`（feat/fix/docs）。
