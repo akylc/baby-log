@@ -57,6 +57,18 @@ CREATE TABLE IF NOT EXISTS sleeps (
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS plays (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  baby_id      INTEGER NOT NULL REFERENCES babies(id) ON DELETE CASCADE,
+  play_type    TEXT NOT NULL,                -- 娱乐类型（爬爬垫/散步/户外娱乐…）
+  duration_min INTEGER NOT NULL DEFAULT 0,
+  play_start   TEXT,                          -- 开始时间 (ISO 8601)
+  play_end     TEXT,                          -- 结束时间 (ISO 8601)
+  note         TEXT,
+  occurred_at  TEXT NOT NULL,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS diapers (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   baby_id      INTEGER NOT NULL REFERENCES babies(id) ON DELETE CASCADE,
@@ -69,6 +81,7 @@ CREATE TABLE IF NOT EXISTS diapers (
 CREATE INDEX IF NOT EXISTS idx_babies_user    ON babies(user_id);
 CREATE INDEX IF NOT EXISTS idx_feedings_baby  ON feedings(baby_id);
 CREATE INDEX IF NOT EXISTS idx_sleeps_baby    ON sleeps(baby_id);
+CREATE INDEX IF NOT EXISTS idx_plays_baby     ON plays(baby_id);
 CREATE INDEX IF NOT EXISTS idx_diapers_baby   ON diapers(baby_id);
 `
 

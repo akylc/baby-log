@@ -10,6 +10,7 @@ import babyRoutes from './routes/baby'
 import feedingRoutes from './routes/feedings'
 import sleepRoutes from './routes/sleeps'
 import diaperRoutes from './routes/diapers'
+import playRoutes from './routes/plays'
 import statsRoutes from './routes/stats'
 import healthRoutes from './routes/health'
 
@@ -105,6 +106,7 @@ async function main() {
   await fastify.register(feedingRoutes)
   await fastify.register(sleepRoutes)
   await fastify.register(diaperRoutes)
+  await fastify.register(playRoutes)
   await fastify.register(statsRoutes)
   await fastify.register(healthRoutes)
 

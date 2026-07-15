@@ -52,6 +52,7 @@ body {
   --t-food: #34c759;
   --t-supplement: #a06bff;
   --t-sleep: #6c7bd1;
+  --t-play: #ff9f43;
   --t-diaper: #f0a93b;
   /* icon 方块按类型上色的混合比例：亮色卡片为白，比例低才不刺眼 */
   --icon-tint: 16%;
@@ -89,6 +90,7 @@ html.dark {
   --t-food: #5ad97e;
   --t-supplement: #b78cff;
   --t-sleep: #8a98e0;
+  --t-play: #ffb86b;
   --t-diaper: #ffc06b;
   /* 暗色模式卡片偏深，需更高比例 icon 着色才看得清 */
   --icon-tint: 30%;

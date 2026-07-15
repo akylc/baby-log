@@ -242,6 +242,25 @@
             </div>
           </template>
 
+          <template v-else-if="editKind === 'play'">
+            <div class="ef">
+              <label>娱乐类型<span class="req">*</span></label>
+              <n-input v-model:value="ePlayType" placeholder="如 爬爬垫、散步" />
+            </div>
+            <div class="ef">
+              <label>开始时间（选填）</label>
+              <n-date-picker v-model:value="ePlayStart" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
+            </div>
+            <div class="ef">
+              <label>结束时间（选填）</label>
+              <n-date-picker v-model:value="ePlayEnd" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
+            </div>
+            <div class="ef" v-if="ePlayStart && ePlayEnd && editPlayMin > 0">
+              <label>娱乐时长（自动计算）</label>
+              <div class="sleep-dur-auto">{{ editPlayDurText }}</div>
+            </div>
+          </template>
+
           <template v-else>
             <div class="ef">
               <label>类型</label>
@@ -259,7 +278,7 @@
             </div>
           </template>
 
-          <div class="ef" v-if="editKind !== 'sleep'">
+          <div class="ef" v-if="editKind !== 'sleep' && editKind !== 'play'">
             <label>时间</label>
             <n-date-picker v-model:value="eTs" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
           </div>
@@ -340,6 +359,7 @@ import { useBabyStore } from '@/stores/baby'
 import { getStats, type DayStats } from '@/api/stats'
 import { listFeedings, updateFeeding, deleteFeeding, type Feeding } from '@/api/feedings'
 import { listSleeps, updateSleep, deleteSleep, type Sleep } from '@/api/sleeps'
+import { listPlays, updatePlay, deletePlay, type Play } from '@/api/plays'
 import { listDiapers, updateDiaper, deleteDiaper, type Diaper } from '@/api/diapers'
 import { formatClock, tsToIso, isoToTs } from '@/utils/time'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
@@ -360,7 +380,7 @@ const appVersion = (import.meta.env as any).VITE_APP_VERSION || '—'
 const buildTime = __BUILD_TIME__
 
 // 记录类型筛选：近 7 天列表按记录类型过滤
-const ALL_TYPES = ['breast', 'formula', 'bottle', 'food', 'supplement', 'sleep', 'diaper']
+const ALL_TYPES = ['breast', 'formula', 'bottle', 'food', 'supplement', 'sleep', 'play', 'diaper']
 const FILTER_OPTIONS = [
   { value: 'breast', label: '母乳', icon: '🤱' },
   { value: 'formula', label: '配方奶', icon: '🥛' },
@@ -368,6 +388,7 @@ const FILTER_OPTIONS = [
   { value: 'food', label: '辅食', icon: '🍚' },
   { value: 'supplement', label: '营养补剂', icon: '💊' },
   { value: 'sleep', label: '睡眠', icon: '😴' },
+  { value: 'play', label: '娱乐', icon: '🎡' },
   { value: 'diaper', label: '换尿布', icon: '💩' },
 ]
 const FILTER_KEY = 'ml_type_filter'
@@ -491,14 +512,17 @@ const stats = ref<DayStats>({
 const feedings = ref<Feeding[]>([])
 const sleeps = ref<Sleep[]>([])
 const diapers = ref<Diaper[]>([])
+const plays = ref<Play[]>([])
 // 原始拉取数据（未过滤），供按类型筛选时复用，无需重新请求
 const allFeedings = ref<Feeding[]>([])
 const allSleeps = ref<Sleep[]>([])
 const allDiapers = ref<Diaper[]>([])
+const allPlays = ref<Play[]>([])
 const prevFeedings = ref<Feeding[]>([])
 const prevSleeps = ref<Sleep[]>([])
 const prevDiapers = ref<Diaper[]>([])
-const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: { text: string; kind: 'now' | 'last' }[]; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any; anchorTs: number; gapStartTs: number }[]>([])
+const prevPlays = ref<Play[]>([])
+const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: { text: string; kind: 'now' | 'last' }[]; kind: 'feeding' | 'sleep' | 'play' | 'diaper'; type: string; id: number; raw: any; anchorTs: number; gapStartTs: number }[]>([])
 
 // 按当前类型筛选重建展示数据（feedings/sleeps/diapers 与「距上次」下界均受筛选影响），
 // 切换筛选时调用，无需重新请求后端。
@@ -507,11 +531,13 @@ function rebuild() {
   feedings.value = set.size === ALL_TYPES.length ? allFeedings.value : allFeedings.value.filter((r) => set.has(r.type))
   sleeps.value = set.has('sleep') ? allSleeps.value : []
   diapers.value = set.has('diaper') ? allDiapers.value : []
+  plays.value = set.has('play') ? allPlays.value : []
   const prevDayLastByType: Record<string, number> = {}
   const bump = (key: string, ms: number) => {
     if (prevDayLastByType[key] == null || ms > prevDayLastByType[key]) prevDayLastByType[key] = ms
   }
   if (set.has('sleep')) prevSleeps.value.forEach((r) => bump('sleep', sleepAnchor(r)))
+  if (set.has('play')) prevPlays.value.forEach((r) => bump('play', playAnchor(r)))
   if (set.has('diaper')) prevDiapers.value.forEach((r) => bump('diaper', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
   prevFeedings.value.forEach((r) => {
     if (set.has(r.type)) bump(r.type, new Date(r.occurred_at.replace(' ', 'T')).getTime())
@@ -541,22 +567,26 @@ async function refresh() {
     const fromDate = shiftDateStr(selectedDate.value, -6)
     const prevDate = shiftDateStr(fromDate, -1) // 前一天（用于最早项跨天「距上次」）
     const bid = currentBaby.value?.id
-    const [s, f, sl, d, pf, ps, pd] = await Promise.all([
+    const [s, f, sl, d, pl, pf, ps, pd, ppl] = await Promise.all([
       getStats(selectedDate.value, bid),
       listFeedings({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listSleeps({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listDiapers({ from: fromDate, to: selectedDate.value, babyId: bid }),
+      listPlays({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listFeedings({ date: prevDate, babyId: bid }),
       listSleeps({ date: prevDate, babyId: bid }),
       listDiapers({ date: prevDate, babyId: bid }),
+      listPlays({ date: prevDate, babyId: bid }),
     ])
     stats.value = s
     allFeedings.value = f
     allSleeps.value = sl
     allDiapers.value = d
+    allPlays.value = pl
     prevFeedings.value = pf
     prevSleeps.value = ps
     prevDiapers.value = pd
+    prevPlays.value = ppl
     rebuild()
   } catch (e: any) {
     message.error(e?.message || '加载失败')
@@ -577,8 +607,19 @@ function sleepAnchor(r: { sleep_start?: string | null; sleep_end?: string | null
   return toMs(r.occurred_at) || Date.now()
 }
 
+// 娱乐「事件锚点」：与睡眠一致，优先用结束时间；无结束时间则用「开始时间 + 时长」（进行中回退开始时间）
+function playAnchor(r: { play_start?: string | null; play_end?: string | null; duration_min?: number; occurred_at: string }): number {
+  const toMs = (s?: string | null) => (s ? new Date(s.replace(' ', 'T')).getTime() : NaN)
+  const end = toMs(r.play_end)
+  if (!isNaN(end)) return end
+  const start = toMs(r.play_start)
+  const dur = (r.duration_min || 0) * 60000
+  if (!isNaN(start) && dur > 0) return start + dur
+  return toMs(r.occurred_at) || Date.now()
+}
+
 function buildTimeline(prevDayLastByType: Record<string, number>) {
-  const items: { time: string; sortKey: string; icon: string; title: string; sub?: string; kind: 'feeding' | 'sleep' | 'diaper'; type: string; id: number; raw: any; anchorTs: number; gapStartTs: number; gaps: { text: string; kind: 'now' | 'last' }[] }[] = []
+  const items: { time: string; sortKey: string; icon: string; title: string; sub?: string; kind: 'feeding' | 'sleep' | 'play' | 'diaper'; type: string; id: number; raw: any; anchorTs: number; gapStartTs: number; gaps: { text: string; kind: 'now' | 'last' }[] }[] = []
   feedings.value.forEach((f) => {
     let icon = '🍼'
     let title = ''
@@ -614,6 +655,13 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
     const map: Record<string, string> = { pee: '尿片', poo: '便便', both: '尿+便' }
     items.push({ time: formatClock(d.occurred_at), sortKey: d.occurred_at, icon: '💩', title: map[d.type] || '换尿布', sub: d.note || undefined, kind: 'diaper', type: 'diaper', id: d.id, raw: d, anchorTs: new Date(d.occurred_at.replace(' ', 'T')).getTime(), gapStartTs: new Date(d.occurred_at.replace(' ', 'T')).getTime() })
   })
+  plays.value.forEach((p) => {
+    const timeStr = p.play_start && p.play_end
+      ? `${formatClock(p.play_start)} → ${formatClock(p.play_end)}`
+      : formatClock(p.occurred_at)
+    const title = p.duration_min > 0 ? `${p.play_type} ${fmtDuration(p.duration_min)}` : `${p.play_type || '娱乐'} · 进行中`
+    items.push({ time: timeStr, sortKey: p.occurred_at, icon: '🎡', title, sub: p.note || undefined, kind: 'play', type: 'play', id: p.id, raw: p, anchorTs: playAnchor(p), gapStartTs: p.play_start ? new Date(p.play_start.replace(' ', 'T')).getTime() : playAnchor(p) })
+  })
   items.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
   const now = Date.now()
   // 「距上次」改为「对应类型」的距上次：仅与同类型、时间上更早的记录比较
@@ -624,6 +672,7 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
     food: '辅食',
     supplement: '营养补剂',
     sleep: '睡眠',
+    play: '娱乐',
     diaper: '换尿布',
   }
   const byType: Record<string, typeof items> = {}
@@ -802,7 +851,7 @@ const diaperOpts = [
   { value: 'both', label: '尿+便' },
 ]
 const editShow = ref(false)
-const editKind = ref<'feeding' | 'sleep' | 'diaper'>('feeding')
+const editKind = ref<'feeding' | 'sleep' | 'play' | 'diaper'>('feeding')
 const editId = ref(0)
 const editType = ref<string>('')
 const eLeft = ref<number | null>(null)
@@ -812,6 +861,9 @@ const eFood = ref('')
 const eDuration = ref<number | null>(null)
 const eSleepStart = ref<number | null>(null)
 const eSleepEnd = ref<number | null>(null)
+const ePlayType = ref('')
+const ePlayStart = ref<number | null>(null)
+const ePlayEnd = ref<number | null>(null)
 const eDiaper = ref<'pee' | 'poo' | 'both'>('pee')
 const eNote = ref('')
 const eTs = ref(Date.now())
@@ -824,6 +876,21 @@ const editSleepMin = computed(() => {
 })
 const editSleepDurText = computed(() => {
   const m = editSleepMin.value
+  if (!m) return ''
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  if (h > 0 && r > 0) return `共 ${h} 小时 ${r} 分钟`
+  if (h > 0) return `共 ${h} 小时`
+  return `共 ${m} 分钟`
+})
+const editPlayMin = computed(() => {
+  if (!ePlayStart.value || !ePlayEnd.value) return 0
+  const diffMs = ePlayEnd.value - ePlayStart.value
+  if (diffMs <= 0) return 0
+  return Math.ceil(diffMs / 60000)
+})
+const editPlayDurText = computed(() => {
+  const m = editPlayMin.value
   if (!m) return ''
   const h = Math.floor(m / 60)
   const r = m % 60
@@ -854,7 +921,13 @@ function openEdit(it: any) {
     }
   } else if (it.kind === 'sleep') {
     eSleepStart.value = r.sleep_start ? isoToTs(r.sleep_start) : null
-    eSleepEnd.value = r.sleep_end ? isoToTs(r.sleep_end) : null
+    // 进行中的睡眠（无醒来时间）编辑时，醒来时间默认填当前时间，方便直接结束本次睡眠
+    eSleepEnd.value = r.sleep_end ? isoToTs(r.sleep_end) : Date.now()
+  } else if (it.kind === 'play') {
+    ePlayType.value = r.play_type || ''
+    ePlayStart.value = r.play_start ? isoToTs(r.play_start) : null
+    // 进行中的娱乐（无结束时间）编辑时，结束时间默认填当前时间，方便直接结束本次娱乐
+    ePlayEnd.value = r.play_end ? isoToTs(r.play_end) : Date.now()
   } else {
     eDiaper.value = r.type
   }
@@ -897,6 +970,24 @@ async function saveEdit() {
         payload.sleep_end = tsToIso(eSleepEnd.value)
       }
       await updateSleep(editId.value, payload)
+    } else if (editKind.value === 'play') {
+      if (!ePlayType.value || !ePlayType.value.trim()) {
+        message.warning('请填写娱乐类型')
+        editLoading.value = false
+        return
+      }
+      // 开始时间选填：未填则以当前时间记录（与睡眠类型一致）
+      const payload: any = { play_type: ePlayType.value.trim(), note: eNote.value || null }
+      if (ePlayStart.value) {
+        payload.play_start = tsToIso(ePlayStart.value)
+        payload.occurred_at = tsToIso(ePlayStart.value)
+      } else {
+        payload.occurred_at = tsToIso(Date.now())
+      }
+      if (ePlayEnd.value && editPlayMin.value > 0) {
+        payload.play_end = tsToIso(ePlayEnd.value)
+      }
+      await updatePlay(editId.value, payload)
     } else {
       await updateDiaper(editId.value, {
         type: eDiaper.value,
@@ -926,6 +1017,7 @@ function deleteCurrent() {
       try {
         if (editKind.value === 'feeding') await deleteFeeding(editId.value)
         else if (editKind.value === 'sleep') await deleteSleep(editId.value)
+        else if (editKind.value === 'play') await deletePlay(editId.value)
         else await deleteDiaper(editId.value)
         message.success('已删除')
         editShow.value = false
@@ -1256,6 +1348,7 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
 .tl-food { --tt: var(--t-food); }
 .tl-supplement { --tt: var(--t-supplement); }
 .tl-sleep { --tt: var(--t-sleep); }
+.tl-play { --tt: var(--t-play); }
 .tl-diaper { --tt: var(--t-diaper); }
 .tl-icon {
   width: 38px;
@@ -1484,6 +1577,37 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
 .ef label {
   font-size: 13px;
   color: var(--text-2);
+}
+.hist {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+.hist-cap {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--tag-border);
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  border-radius: 14px;
+  padding: 6px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  transition: background 0.15s;
+}
+.tag:active {
+  background: var(--card-pink);
 }
 .edit-actions {
   display: flex;

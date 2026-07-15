@@ -169,6 +169,48 @@
         </div>
       </template>
 
+      <template v-else-if="type === 'play'">
+        <div class="field">
+          <label>娱乐类型<span class="req">*</span></label>
+          <n-input v-model:value="playType" placeholder="如 爬爬垫、散步" />
+          <div class="hist" v-if="playPresets.length">
+            <span class="hist-cap">常见娱乐（点击填入）</span>
+            <span
+              v-for="p in playPresets"
+              :key="p"
+              class="tag preset"
+              @click="playType = p"
+            >{{ p }}</span>
+          </div>
+          <div class="hist" v-if="hist.play_type.length">
+            <span class="hist-cap">最近（长按删除）</span>
+            <span
+              v-for="h in hist.play_type"
+              :key="h"
+              class="tag"
+              @click="fillVal('play_type', h)"
+              @touchstart.passive="onTagPressStart('play_type', h)"
+              @touchend="onTagPressEnd"
+              @touchmove="onTagPressEnd"
+              @touchcancel="onTagPressEnd"
+              @contextmenu.prevent="askDelete('play_type', h)"
+            >{{ h }}</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>开始时间（选填）</label>
+          <n-date-picker v-model:value="playStart" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
+        </div>
+        <div class="field">
+          <label>结束时间（选填）</label>
+          <n-date-picker v-model:value="playEnd" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
+        </div>
+        <div class="field" v-if="playStart && playEnd && calcPlayMin > 0">
+          <label>娱乐时长（自动计算）</label>
+          <div class="sleep-dur-auto">{{ playDurText }}</div>
+        </div>
+      </template>
+
       <template v-else-if="type === 'diaper'">
         <div class="field">
           <label>类型</label>
@@ -185,7 +227,7 @@
         </div>
       </template>
 
-      <div class="field" v-if="type !== 'sleep'">
+      <div class="field" v-if="type !== 'sleep' && type !== 'play'">
         <label>时间</label>
         <n-date-picker v-model:value="occurredTs" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
       </div>
@@ -213,6 +255,7 @@ import { storeToRefs } from 'pinia'
 import { useBabyStore } from '@/stores/baby'
 import { createFeeding } from '@/api/feedings'
 import { createSleep } from '@/api/sleeps'
+import { createPlay } from '@/api/plays'
 import { createDiaper } from '@/api/diapers'
 import { getHistory, pushHistory, removeHistory } from '@/utils/history'
 import { tsToIso } from '@/utils/time'
@@ -227,7 +270,7 @@ function goHome() {
   router.replace('/')
 }
 
-type RecType = 'breast' | 'formula' | 'food' | 'bottle' | 'supplement' | 'sleep' | 'diaper'
+type RecType = 'breast' | 'formula' | 'food' | 'bottle' | 'supplement' | 'sleep' | 'play' | 'diaper'
 const types = [
   { value: 'breast', label: '母乳', icon: '🤱' },
   { value: 'formula', label: '配方奶', icon: '🥛' },
@@ -235,6 +278,7 @@ const types = [
   { value: 'food', label: '辅食', icon: '🍚' },
   { value: 'supplement', label: '营养补剂', icon: '💊' },
   { value: 'sleep', label: '睡眠', icon: '😴' },
+  { value: 'play', label: '娱乐', icon: '🎡' },
   { value: 'diaper', label: '换尿布', icon: '💩' },
 ]
 const diaperOpts = [
@@ -244,12 +288,14 @@ const diaperOpts = [
 ]
 // 营养补剂常见快捷选项（点击填入补剂名称，非历史记录）
 const supplementPresets = ['维生素D', '维生素AD', 'DHA', '钙', '铁', '锌', '益生菌', '鱼油']
+// 娱乐常见快捷选项（点击填入娱乐类型，非历史记录）
+const playPresets = ['爬爬垫', '散步', '户外娱乐', '早教', '唱歌', '讲故事', '积木', '游戏']
 
 // 记住上次选择的记录类型（仅类型，不带入数据）——存浏览器 localStorage
 function loadLastType(): RecType {
   try {
     const v = localStorage.getItem('ml_last_type')
-    if (v === 'breast' || v === 'formula' || v === 'bottle' || v === 'food' || v === 'supplement' || v === 'sleep' || v === 'diaper') return v
+    if (v === 'breast' || v === 'formula' || v === 'bottle' || v === 'food' || v === 'supplement' || v === 'sleep' || v === 'play' || v === 'diaper') return v
   } catch {
     /* 忽略存储异常 */
   }
@@ -418,6 +464,9 @@ const leftDuration = ref<number | null>(null)
 const rightDuration = ref<number | null>(null)
 const sleepStart = ref<number>(Date.now())
 const sleepEnd = ref<number | null>(null)
+const playType = ref('')
+const playStart = ref<number>(Date.now())
+const playEnd = ref<number | null>(null)
 const calcSleepMin = computed(() => {
   if (!sleepStart.value || !sleepEnd.value) return 0
   const diffMs = sleepEnd.value - sleepStart.value
@@ -426,6 +475,21 @@ const calcSleepMin = computed(() => {
 })
 const sleepDurText = computed(() => {
   const m = calcSleepMin.value
+  if (!m) return ''
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  if (h > 0 && r > 0) return `共 ${h} 小时 ${r} 分钟`
+  if (h > 0) return `共 ${h} 小时`
+  return `共 ${m} 分钟`
+})
+const calcPlayMin = computed(() => {
+  if (!playStart.value || !playEnd.value) return 0
+  const diffMs = playEnd.value - playStart.value
+  if (diffMs <= 0) return 0
+  return Math.ceil(diffMs / 60000)
+})
+const playDurText = computed(() => {
+  const m = calcPlayMin.value
   if (!m) return ''
   const h = Math.floor(m / 60)
   const r = m % 60
@@ -449,6 +513,7 @@ const hist = reactive<Record<string, string[]>>({
   milk_amount: getHistory('milk_amount'),
   food_name: getHistory('food_name'),
   supplement_name: getHistory('supplement_name'),
+  play_type: getHistory('play_type'),
 })
 function recordHist(key: string, val: number | string | null) {
   if (val === null || val === undefined || val === '') return
@@ -506,12 +571,14 @@ function fillVal(key: string, val: string) {
   else if (key === 'milk_amount') amount.value = Number(val)
   else if (key === 'food_name') foodName.value = val
   else if (key === 'supplement_name') supplementName.value = val
+  else if (key === 'play_type') playType.value = val
 }
 
 async function reload() {
   // 切回前台：把记录时间重置为「此刻」（用户此刻才记录，避免停留在切后台前的时间）
   occurredTs.value = Date.now()
   if (type.value === 'sleep') sleepStart.value = Date.now()
+  if (type.value === 'play') playStart.value = Date.now()
   // 记录页可能是首屏（如在 /record 刷新），主动拉取宝宝，避免误判"未添加宝宝"
   if (!currentBaby.value) {
     try {
@@ -597,6 +664,24 @@ async function submit() {
         payload.sleep_end = tsToIso(sleepEnd.value)
       }
       await createSleep(payload)
+    } else if (type.value === 'play') {
+      const name = playType.value.trim()
+      if (!name) {
+        message.warning('请填写娱乐类型')
+        loading.value = false
+        return
+      }
+      // 命中常见娱乐（点击常见娱乐即可填入，无需再堆进「最近」标签）
+      if (!playPresets.includes(name)) {
+        recordHist('play_type', name)
+      }
+      const payload: any = { babyId: currentBaby.value!.id, play_type: name, note: note.value || null }
+      // 开始时间选填：未填则以当前时间记录（与睡眠类型一致，后端以当前时间作为 occurred_at）
+      if (playStart.value) payload.play_start = tsToIso(playStart.value)
+      if (playEnd.value && calcPlayMin.value > 0) {
+        payload.play_end = tsToIso(playEnd.value)
+      }
+      await createPlay(payload)
     } else if (type.value === 'diaper') {
       await createDiaper({ babyId: currentBaby.value!.id, type: diaperType.value, note: note.value || null, occurred_at: occurredAt.value })
     }
