@@ -81,23 +81,36 @@
           <span v-if="isFilterActive" class="filter-dot"></span>
         </button>
       </div>
-      <div v-if="timeline.length === 0" class="no-data">{{ isFilterActive ? '当前筛选条件下没有记录' : '还没有记录，点右下角「＋」开始吧 👉' }}</div>
-      <template v-for="grp in dayGroups" :key="grp.date">
-        <div class="day-head">
-          <span class="day-d">{{ grp.label }}</span>
-          <span class="day-sum" v-if="grp.summary">{{ grp.summary }}</span>
-        </div>
-        <div v-for="(it, i) in grp.items" :key="grp.date + '-' + i" class="tl-item" :class="'tl-' + it.type" @click="openEdit(it)">
-          <div class="tl-icon">{{ it.icon }}</div>
-          <div class="tl-body">
-            <div class="tl-title">{{ it.title }}</div>
-            <div class="tl-sub" v-if="it.sub">{{ it.sub }}</div>
-            <div class="tl-gaps" v-if="it.gaps && it.gaps.length">
-              <span class="tl-gap" :class="{ 'tl-gap-now': g.kind === 'now' }" v-for="(g, gi) in it.gaps" :key="gi">{{ g.text }}</span>
-            </div>
+      <!-- 首次加载骨架屏：数据回来前占位，避免空白闪烁；加载完成（firstLoad=false）后展示真实列表/空态 -->
+      <div v-if="firstLoad" class="sk-list" aria-hidden="true">
+        <div class="sk-item" v-for="n in 6" :key="n">
+          <div class="sk-icon"></div>
+          <div class="sk-lines">
+            <div class="sk-line sk-title"></div>
+            <div class="sk-line sk-sub"></div>
           </div>
-          <div class="tl-time">{{ it.time }}</div>
+          <div class="sk-time"></div>
         </div>
+      </div>
+      <template v-else>
+        <div v-if="timeline.length === 0" class="no-data">{{ isFilterActive ? '当前筛选条件下没有记录' : '还没有记录，点右下角「＋」开始吧 👉' }}</div>
+        <template v-for="grp in dayGroups" :key="grp.date">
+          <div class="day-head">
+            <span class="day-d">{{ grp.label }}</span>
+            <span class="day-sum" v-if="grp.summary">{{ grp.summary }}</span>
+          </div>
+          <div v-for="(it, i) in grp.items" :key="grp.date + '-' + i" class="tl-item" :class="'tl-' + it.type" @click="openEdit(it)">
+            <div class="tl-icon">{{ it.icon }}</div>
+            <div class="tl-body">
+              <div class="tl-title">{{ it.title }}</div>
+              <div class="tl-sub" v-if="it.sub">{{ it.sub }}</div>
+              <div class="tl-gaps" v-if="it.gaps && it.gaps.length">
+                <span class="tl-gap" :class="{ 'tl-gap-now': g.kind === 'now' }" v-for="(g, gi) in it.gaps" :key="gi">{{ g.text }}</span>
+              </div>
+            </div>
+            <div class="tl-time">{{ it.time }}</div>
+          </div>
+        </template>
       </template>
       <div class="build-info">构建于 {{ buildTime }} · v{{ appVersion }}</div>
     </section>
@@ -507,6 +520,7 @@ function rebuild() {
 }
 watch(typeFilter, rebuild)
 
+const firstLoad = ref(true)
 const refreshing = ref(false)
 
 async function refresh() {
@@ -548,6 +562,7 @@ async function refresh() {
     message.error(e?.message || '加载失败')
   } finally {
     refreshing.value = false
+    firstLoad.value = false
   }
 }
 
@@ -1294,6 +1309,74 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
   font-size: 12px;
   color: var(--text-4);
   flex: none;
+}
+/* 骨架屏（首页记录列表首次加载占位） */
+.sk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.sk-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+.sk-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  flex: none;
+}
+.sk-lines {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sk-line {
+  height: 12px;
+  border-radius: 6px;
+}
+.sk-title {
+  width: 55%;
+}
+.sk-sub {
+  width: 35%;
+  height: 10px;
+}
+.sk-time {
+  width: 40px;
+  height: 12px;
+  border-radius: 6px;
+  flex: none;
+}
+.sk-icon,
+.sk-line,
+.sk-time {
+  background: linear-gradient(90deg, var(--sk-base) 25%, var(--sk-hi) 37%, var(--sk-base) 63%);
+  background-size: 400% 100%;
+  animation: sk-shimmer 1.4s ease infinite;
+}
+@keyframes sk-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk-icon,
+  .sk-line,
+  .sk-time {
+    animation: none;
+  }
 }
 .fab {
   position: fixed;

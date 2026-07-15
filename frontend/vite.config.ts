@@ -27,6 +27,13 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  // dev 模式下 esbuild 预构建依赖时若按过老的 target（chrome87/es2020 等）会触发
+  // "Transforming destructuring is not supported yet" 报错；显式提到 es2022 与现代浏览器对齐。
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'es2022',
+    },
+  },
   server: {
     port: 5173,
     proxy: {
