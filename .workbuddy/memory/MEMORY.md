@@ -30,7 +30,8 @@
 - **「发版」触发完整流程（一气呵成，不拆分）**：当用户说"发版"（含"升级版本号并打包docker""升版本+打包docker"等同类表述）时，必须按顺序执行且全部完成，不待用户逐个下令：
   ① **更新版本号**：抬高根 package.json 的 `version`（用户未指定具体版本时按 semver 升 patch，如 0.0.11→0.0.12）；frontend/backend 的 package.json `version` 同步改，仅作一致性保留。
   ② `pnpm build`：把新版本内联进前后端产物（前端 `VITE_APP_VERSION` = vite define；后端 `APP_VERSION` = tsup define 字面量）。
-  ③ `pnpm docker:build`（= `scripts/build-docker.mjs`）：自动读根 package.json 版本，以 `baby-log:v<版本>` 为 tag 构建（多阶段 node:24-alpine，仅 COPY `backend/dist`），并 `docker save` 导出 tar 到 `N:/应用/Docker/baby-log/baby-log-v<版本>.tar`（目录可用 env `DOCKER_TAR_DIR` 覆盖）。
+  ③ `pnpm docker:build`（= `scripts/build-docker.mjs`）：自动读根 package.json 版本，以 `baby-log:v<版本>` 为 tag 构建（多阶段 node:24-alpine，仅 COPY `backend/dist`），并 `docker save` 导出 tar（默认 `N:/应用/Docker/baby-log/baby-log-v<版本>.tar`，目录可用 env `DOCKER_TAR_DIR` 覆盖）。
+  - ⚠️ **本 agent 运行环境无 N: 盘符映射**：Git Bash 与 PowerShell 测均 `N_DRIVE_MOUNTED=no`。但同一台内网机的共享盘可达，UNC 为 `\\10.8.0.10\151xxxx0858\应用\Docker\baby-log`（与 git origin 同源 `10.8.0.10`）。要让 tar 直接落到部署共享盘：设 `DOCKER_TAR_DIR` 为 UNC，**必须用正斜杠** `//10.8.0.10/151xxxx0858/应用/Docker/baby-log`——反斜杠 `\\...` 会被 shell 折叠成单 `\` 导致 docker 报 `invalid output path`。已验证 v0.0.15 tar 成功落到该共享盘（56.3MB，与 v0.0.13/14 并列）。
   ④ **提交推送 + 打 tag（发版收尾必做）**：`git add` 工作树全部改动（至少三处 package.json 版本号 + 本次发版对应的代码改动 + `.workbuddy/memory/**` 记忆日记/约定）后 `git commit`（信息风格 `chore: 版本号升至 vX.Y.Z` 或对应 type）；随即打**当前版本 tag**：`git tag v<版本号>`（如 `v0.0.15`，指向本次发版 commit，轻量 tag）；再 `git push origin main` 与 `git push github main`，并 `git push origin v<版本号>` 与 `git push github v<版本号>`（双推代码 + tag，发版即自动上 GitHub 并带版本 tag，无需额外操作）。
   —— 即「发版」= 升版本 + 打包最新 docker + 提交推送，三者连做。
 - 版本号**唯一来源 = 根 package.json 的 version**；运行期版本来自内联进 dist 的代码。Docker 镜像**无 version LABEL**（`ARG VERSION`/`LABEL version`/`ENV APP_VERSION` 均已移除——LABEL 为纯元数据、运行版本由内联 dist 决定，Docker 层无法影响）。版本以镜像 tag `baby-log:v<版本>` 与 `/api/health` 为准。Node 24 部署。
