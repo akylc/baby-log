@@ -14,6 +14,13 @@
 - **娱乐类型 = 睡眠类型的平行复制**：开始时间/结束时间均选填、有结束时间才有时长、无结束时间列表显示「· 进行中」、anchor 优先结束时间。删字段/减功能时务必保持与睡眠严格对齐（曾误删娱乐时间框又被恢复）。娱乐的「开始时间/结束时间」是自有字段，编辑弹窗不显示通用「时间」框（`editKind==='play'` 排除）。
 - 主题色：7 类 feeding 子类型 + sleep + play 各有一套 `--t-*` 变量（亮/暗色两版）+ `.tl-{type}`；icon 背景用 `color-mix(in srgb, var(--tt) var(--icon-tint), var(--card))`。
 
+## 本地预览 / 运行（重要，反复踩）
+- **预览要同时拉起两端**：前端 `pnpm --filter frontend dev`（vite，默认 5173，代理 `/api`→`26712`）+ 后端 `node backend/dist/server.js`（26712）。任一端挂了都打不开：前端 dev server 崩溃/被杀后不会自动重启（曾因 vite 解构编译错误 + 进程被杀，5173/5174 双双挂掉导致"预览没跑起来"）。
+- **后端是手动长进程，非守护**：`node dist/server.js` 由会话手动起、常驻；它跑的是**构建时**的 dist，不会自动热更。代码改动（尤其新增后端路由如 plays）后必须**先 `pnpm build` 再重启后端**，否则后端仍是旧版本（曾出现后端停在 v0.0.10、dist 无 plays 路由的坑）。
+- ⚠️ **杀旧后端进程**：本机常残留早期会话起的后端（占 26712、版本很旧）。当前 Bash 沙箱的 `kill` 报 "No such process"（进程不在沙箱 PID 命名空间），普通 `kill` 杀不掉；须用 **PowerShell 工具** `Stop-Process -Id <PID> -Force` 才能终止（bash 里调用 powershell 会被安全策略拦截，务必走 PowerShell 工具）。杀掉后 26712 才释放、新后端才能绑定。
+- **vite 探活写法**：本机有 HTTP 代理，curl 探本地必须 `--noproxy '*'`；且 `-o /dev/null` 配合 `-w` 偶尔报 `curl: (23) ... write of N bytes`（无害，http=200 即正常）。
+- vite dev 若报 `Transforming destructuring ... is not supported yet`，是 `optimizeDeps` 按过老 target 预构建依赖所致，已在 `vite.config.ts` 加 `optimizeDeps.esbuildOptions.target='es2022'`（与 build.target 对齐）修复。
+
 ## git 提交习惯（与用户约定）
 - 用户改完并浏览器验收 OK 后才让我 `git commit`；信息风格 `type: 中文描述`（feat/fix/docs）。
 - 本地 `main` 多次领先 `origin/main`（之前未推送），需推送时显式询问。
