@@ -8,6 +8,12 @@
 - 构建产物（自包含 dist）：前端 `vite build` 输出 `frontend/dist` → tsup `onSuccess` 经 `scripts/copy-frontend.mjs` 复制到 `backend/dist/public`；`config.ts` 的 `PUBLIC_DIR = cwd/dist/public`；`tsup` 内联全部 npm 依赖（noExternal 排除 node: 内置）、`clean` 清空 dist 后前端复制须在 onSuccess 阶段。最终 `backend/dist` 纯 JS 自包含，部署直接 `node dist/server.js`。
 - Docker 部署：根 `Dockerfile`（多阶段 node:24-alpine），构建阶段 `pnpm install && pnpm build`，运行阶段仅 COPY `backend/dist`；因 dist 纯 JS 跨平台，无需原生编译。用户目标即 Docker 部署，Node 24.15.0。
 
+## 数据模型 / 功能模块（长期架构事实）
+- 记录类型三套存储：**feedings**（通用、含 breast/bottle/water/supplement/pee/poop 等子类型，主表）+ **sleeps**（睡眠，独立表 + 独立 `/api/sleeps` 路由）+ **plays**（娱乐，独立表 + 独立 `/api/plays` 路由，由 commit `2da5b00` 新增，未发版）。
+- sleeps/plays 与 feedings **完全平行**，各自独立表 + 独立路由，**不塞进 feedings**（避免污染 feeding 编辑分支）。`server.ts` 分别注册 `sleepRoutes` / `playRoutes`。
+- **娱乐类型 = 睡眠类型的平行复制**：开始时间/结束时间均选填、有结束时间才有时长、无结束时间列表显示「· 进行中」、anchor 优先结束时间。删字段/减功能时务必保持与睡眠严格对齐（曾误删娱乐时间框又被恢复）。娱乐的「开始时间/结束时间」是自有字段，编辑弹窗不显示通用「时间」框（`editKind==='play'` 排除）。
+- 主题色：7 类 feeding 子类型 + sleep + play 各有一套 `--t-*` 变量（亮/暗色两版）+ `.tl-{type}`；icon 背景用 `color-mix(in srgb, var(--tt) var(--icon-tint), var(--card))`。
+
 ## git 提交习惯（与用户约定）
 - 用户改完并浏览器验收 OK 后才让我 `git commit`；信息风格 `type: 中文描述`（feat/fix/docs）。
 - 本地 `main` 多次领先 `origin/main`（之前未推送），需推送时显式询问。
