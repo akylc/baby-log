@@ -1,6 +1,26 @@
 <template>
   <!-- 按住右下角圆形按钮 → 扇形径向展开全部类型 → 滑动到目标松开即切换 -->
   <div class="pie" ref="wrapRef">
+    <!-- 滑动引导线：从入口按钮中心(半透明)到手指位置(不透明) -->
+    <svg v-if="open && lineActive" class="pie-line" width="0" height="0" aria-hidden="true">
+      <defs>
+        <linearGradient
+          :id="gradId"
+          gradientUnits="userSpaceOnUse"
+          :x1="0" :y1="0" :x2="fingerX" :y2="fingerY"
+        >
+          <stop offset="0%" :stop-color="lineColor" stop-opacity="0.1" />
+          <stop offset="100%" :stop-color="lineColor" stop-opacity="0.9" />
+        </linearGradient>
+      </defs>
+      <line
+        :x1="0" :y1="0" :x2="fingerX" :y2="fingerY"
+        :stroke="`url(#${gradId})`"
+        stroke-width="4"
+        stroke-linecap="round"
+      />
+      <circle :cx="fingerX" :cy="fingerY" r="5" :fill="lineColor" fill-opacity="0.9" />
+    </svg>
     <button class="pie-center" type="button" :aria-label="`扇形切换：${currentLabel}`" @pointerdown.prevent="start">
       <span class="pc-ico">{{ currentIcon }}</span>
     </button>
@@ -37,6 +57,18 @@ const emit = defineEmits<{ (e: 'select', value: string): void }>()
 const open = ref(false)
 const hoverIdx = ref(-1)
 const wrapRef = ref<HTMLElement | null>(null)
+
+// 滑动引导线：手指相对入口中心的偏移；lineActive 表示手指已移动、可绘线
+const fingerX = ref(0)
+const fingerY = ref(0)
+const lineActive = ref(false)
+const gradId = `pie-line-grad-${Math.random().toString(36).slice(2, 8)}`
+// 线条颜色：命中某项时用该类型主题色，否则回退主色
+const lineColor = computed(() =>
+  hoverIdx.value >= 0
+    ? `var(--t-${props.items[hoverIdx.value].value}, var(--primary))`
+    : 'var(--primary)',
+)
 
 const RING_CAP = [3, 5] // 每圈容量：第一圈（内圈）3 个，第二圈 5 个；更多则每圈 5 个
 const SECTOR = 90 // 扇形总张角（度）：从正上方张到正左方，朝页面内部展开
@@ -90,13 +122,18 @@ function itemStyle(i: number, value: string) {
   } as any
 }
 
-function onMove(e: PointerEvent) {
-  if (!open.value || !wrapRef.value) return
+// 根据指针坐标更新引导线终点与命中项（移动端拖动 / PC hover 共用）
+function updateFromPoint(clientX: number, clientY: number) {
+  if (!wrapRef.value) return
   const r = wrapRef.value.getBoundingClientRect()
   const cx = r.left + r.width / 2
   const cy = r.top + r.height / 2
-  const px = e.clientX - cx
-  const py = e.clientY - cy
+  const px = clientX - cx
+  const py = clientY - cy
+  fingerX.value = px
+  fingerY.value = py
+  // 离开中心一定距离才画线，避免刚按下/刚展开时出现极短线段
+  lineActive.value = Math.hypot(px, py) > 12
   let best = -1
   let bestD = Infinity
   layout.value.forEach((p, i) => {
@@ -108,13 +145,21 @@ function onMove(e: PointerEvent) {
   })
   hoverIdx.value = bestD <= HIT ? best : -1
 }
+
+// 滑动选择：按住入口拖动到目标，松开即选择（引导线在拖动时显示）
+function onMove(e: PointerEvent) {
+  updateFromPoint(e.clientX, e.clientY)
+}
 function onUp() {
   window.removeEventListener('pointermove', onMove)
   window.removeEventListener('pointerup', onUp)
   window.removeEventListener('pointercancel', onUp)
-  if (open.value && hoverIdx.value >= 0) emit('select', props.items[hoverIdx.value].value)
+  if (hoverIdx.value >= 0) emit('select', props.items[hoverIdx.value].value)
   open.value = false
   hoverIdx.value = -1
+  lineActive.value = false
+  fingerX.value = 0
+  fingerY.value = 0
   document.body.style.userSelect = ''
 }
 function start(e: PointerEvent) {
@@ -124,6 +169,9 @@ function start(e: PointerEvent) {
   document.body.style.userSelect = 'none'
   open.value = true
   hoverIdx.value = -1
+  lineActive.value = false
+  fingerX.value = 0
+  fingerY.value = 0
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
   window.addEventListener('pointercancel', onUp)
@@ -156,6 +204,14 @@ onBeforeUnmount(() => {
     right: 48px;
   }
 }
+.pie-line {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0; /* 在入口按钮与扇形项之下，仅作视觉引导 */
+}
 .pie-center {
   position: absolute;
   left: 0;
@@ -176,6 +232,7 @@ onBeforeUnmount(() => {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  z-index: 2;
 }
 .pie-item {
   position: absolute;
@@ -183,6 +240,7 @@ onBeforeUnmount(() => {
   top: 0;
   width: 56px;
   height: 56px;
+  z-index: 2;
   border-radius: 50%;
   border: 2px solid transparent;
   display: flex;
