@@ -146,7 +146,7 @@
               <div class="baby-gender">{{ genderLabel(b.gender) }}</div>
             </div>
             <span v-if="b.id === currentBaby?.id" class="cur-tag">当前</span>
-            <button class="del-baby" type="button" aria-label="删除宝宝" @click.stop="removeBaby(b.id)">🗑</button>
+            <span class="del-baby" role="button" tabindex="0" aria-label="删除宝宝" @click.stop="removeBaby(b.id)">🗑</span>
           </button>
 
           <div v-if="adding" class="add-form">
@@ -1761,6 +1761,9 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
   font-size: 16px;
   cursor: pointer;
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: background 0.15s ease;
 }
 .del-baby:hover {
