@@ -67,6 +67,9 @@ body {
   --t-sleep: #6c7bd1;
   --t-play: #ff9f43;
   --t-diaper: #f0a93b;
+  --t-bath: #4cc9f0;
+  --t-haircut: #b5179e;
+  --t-nails: #f9844a;
   /* icon 方块按类型上色的混合比例：亮色卡片为白，比例低才不刺眼 */
   --icon-tint: 16%;
   /* 骨架屏（首次加载占位）基础色与高亮色 */
@@ -105,6 +108,9 @@ html.dark {
   --t-sleep: #8a98e0;
   --t-play: #ffb86b;
   --t-diaper: #ffc06b;
+  --t-bath: #6fd3e8;
+  --t-haircut: #d46fc7;
+  --t-nails: #ffa96b;
   /* 暗色模式卡片偏深，需更高比例 icon 着色才看得清 */
   --icon-tint: 30%;
   /* 骨架屏（首次加载占位）基础色与高亮色 */

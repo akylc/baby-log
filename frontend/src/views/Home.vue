@@ -263,7 +263,7 @@
             </div>
           </template>
 
-          <template v-else>
+          <template v-else-if="editKind === 'diaper'">
             <div class="ef">
               <label>类型</label>
               <div class="seg">
@@ -278,6 +278,10 @@
                 </button>
               </div>
             </div>
+          </template>
+
+          <template v-else-if="editKind === 'care'">
+            <!-- 护理类（洗澡/理发/剪指甲）：仅需时间与备注，无额外字段 -->
           </template>
 
           <div class="ef" v-if="editKind !== 'sleep' && editKind !== 'play'">
@@ -363,6 +367,7 @@ import { listFeedings, updateFeeding, deleteFeeding, type Feeding } from '@/api/
 import { listSleeps, updateSleep, deleteSleep, type Sleep } from '@/api/sleeps'
 import { listPlays, updatePlay, deletePlay, type Play } from '@/api/plays'
 import { listDiapers, updateDiaper, deleteDiaper, type Diaper } from '@/api/diapers'
+import { listCares, updateCare, deleteCare, type Care } from '@/api/cares'
 import { formatClock, tsToIso, isoToTs } from '@/utils/time'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
 import { useRevealRefresh } from '@/utils/reveal'
@@ -382,7 +387,7 @@ const appVersion = (import.meta.env as any).VITE_APP_VERSION || '—'
 const buildTime = __BUILD_TIME__
 
 // 记录类型筛选：近 7 天列表按记录类型过滤
-const ALL_TYPES = ['breast', 'formula', 'bottle', 'food', 'supplement', 'sleep', 'play', 'diaper']
+const ALL_TYPES = ['breast', 'formula', 'bottle', 'food', 'supplement', 'sleep', 'play', 'diaper', 'bath', 'haircut', 'nails']
 const FILTER_OPTIONS = [
   { value: 'breast', label: '母乳', icon: '🤱' },
   { value: 'formula', label: '配方奶', icon: '🥛' },
@@ -392,6 +397,9 @@ const FILTER_OPTIONS = [
   { value: 'sleep', label: '睡眠', icon: '😴' },
   { value: 'play', label: '娱乐', icon: '🎡' },
   { value: 'diaper', label: '换尿布', icon: '💩' },
+  { value: 'bath', label: '洗澡', icon: '🛁' },
+  { value: 'haircut', label: '理发', icon: '💇' },
+  { value: 'nails', label: '剪指甲', icon: '✂️' },
 ]
 const FILTER_KEY = 'ml_type_filter'
 function loadFilter(): string[] {
@@ -524,7 +532,10 @@ const prevFeedings = ref<Feeding[]>([])
 const prevSleeps = ref<Sleep[]>([])
 const prevDiapers = ref<Diaper[]>([])
 const prevPlays = ref<Play[]>([])
-const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: { text: string; kind: 'now' | 'last' }[]; kind: 'feeding' | 'sleep' | 'play' | 'diaper'; type: string; id: number; raw: any; anchorTs: number; gapStartTs: number }[]>([])
+const cares = ref<Care[]>([])
+const allCares = ref<Care[]>([])
+const prevCares = ref<Care[]>([])
+const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: { text: string; kind: 'now' | 'last' }[]; kind: 'feeding' | 'sleep' | 'play' | 'diaper' | 'care'; type: string; id: number; raw: any; anchorTs: number; gapStartTs: number }[]>([])
 
 // 按当前类型筛选重建展示数据（feedings/sleeps/diapers 与「距上次」下界均受筛选影响），
 // 切换筛选时调用，无需重新请求后端。
@@ -534,6 +545,9 @@ function rebuild() {
   sleeps.value = set.has('sleep') ? allSleeps.value : []
   diapers.value = set.has('diaper') ? allDiapers.value : []
   plays.value = set.has('play') ? allPlays.value : []
+  cares.value = set.has('bath') || set.has('haircut') || set.has('nails')
+    ? allCares.value.filter((r) => set.has(r.care_type))
+    : []
   const prevDayLastByType: Record<string, number> = {}
   const bump = (key: string, ms: number) => {
     if (prevDayLastByType[key] == null || ms > prevDayLastByType[key]) prevDayLastByType[key] = ms
@@ -541,6 +555,7 @@ function rebuild() {
   if (set.has('sleep')) prevSleeps.value.forEach((r) => bump('sleep', sleepAnchor(r)))
   if (set.has('play')) prevPlays.value.forEach((r) => bump('play', playAnchor(r)))
   if (set.has('diaper')) prevDiapers.value.forEach((r) => bump('diaper', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
+  if (set.has('bath') || set.has('haircut') || set.has('nails')) prevCares.value.forEach((r) => bump(r.care_type, new Date(r.occurred_at.replace(' ', 'T')).getTime()))
   prevFeedings.value.forEach((r) => {
     if (set.has(r.type)) bump(r.type, new Date(r.occurred_at.replace(' ', 'T')).getTime())
   })
@@ -569,16 +584,18 @@ async function refresh() {
     const fromDate = shiftDateStr(selectedDate.value, -6)
     const prevDate = shiftDateStr(fromDate, -1) // 前一天（用于最早项跨天「距上次」）
     const bid = currentBaby.value?.id
-    const [s, f, sl, d, pl, pf, ps, pd, ppl] = await Promise.all([
+    const [s, f, sl, d, pl, cc, pf, ps, pd, ppl, pcc] = await Promise.all([
       getStats(selectedDate.value, bid),
       listFeedings({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listSleeps({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listDiapers({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listPlays({ from: fromDate, to: selectedDate.value, babyId: bid }),
+      listCares({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listFeedings({ date: prevDate, babyId: bid }),
       listSleeps({ date: prevDate, babyId: bid }),
       listDiapers({ date: prevDate, babyId: bid }),
       listPlays({ date: prevDate, babyId: bid }),
+      listCares({ date: prevDate, babyId: bid }),
     ])
     stats.value = s
     allFeedings.value = f
@@ -589,6 +606,8 @@ async function refresh() {
     prevSleeps.value = ps
     prevDiapers.value = pd
     prevPlays.value = ppl
+    allCares.value = cc
+    prevCares.value = pcc
     rebuild()
   } catch (e: any) {
     message.error(e?.message || '加载失败')
@@ -664,6 +683,15 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
     const title = p.duration_min > 0 ? `${p.play_type} ${fmtDuration(p.duration_min)}` : `${p.play_type || '娱乐'} · 进行中`
     items.push({ time: timeStr, sortKey: p.occurred_at, icon: '🎡', title, sub: p.note || undefined, kind: 'play', type: 'play', id: p.id, raw: p, anchorTs: playAnchor(p), gapStartTs: p.play_start ? new Date(p.play_start.replace(' ', 'T')).getTime() : playAnchor(p) })
   })
+  cares.value.forEach((c) => {
+    const careMeta: Record<string, { icon: string; label: string }> = {
+      bath: { icon: '🛁', label: '洗澡' },
+      haircut: { icon: '💇', label: '理发' },
+      nails: { icon: '✂️', label: '剪指甲' },
+    }
+    const cm = careMeta[c.care_type] || { icon: '🧴', label: '护理' }
+    items.push({ time: formatClock(c.occurred_at), sortKey: c.occurred_at, icon: cm.icon, title: cm.label, sub: c.note || undefined, kind: 'care', type: c.care_type, id: c.id, raw: c, anchorTs: new Date(c.occurred_at.replace(' ', 'T')).getTime(), gapStartTs: new Date(c.occurred_at.replace(' ', 'T')).getTime() })
+  })
   items.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
   const now = Date.now()
   // 「距上次」改为「对应类型」的距上次：仅与同类型、时间上更早的记录比较
@@ -676,6 +704,9 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
     sleep: '睡眠',
     play: '娱乐',
     diaper: '换尿布',
+    bath: '洗澡',
+    haircut: '理发',
+    nails: '剪指甲',
   }
   const byType: Record<string, typeof items> = {}
   for (const it of items) (byType[it.type] ||= []).push(it)
@@ -859,7 +890,7 @@ const diaperOpts = [
   { value: 'both', label: '尿+便' },
 ]
 const editShow = ref(false)
-const editKind = ref<'feeding' | 'sleep' | 'play' | 'diaper'>('feeding')
+const editKind = ref<'feeding' | 'sleep' | 'play' | 'diaper' | 'care'>('feeding')
 const editId = ref(0)
 const editType = ref<string>('')
 const eLeft = ref<number | null>(null)
@@ -936,9 +967,10 @@ function openEdit(it: any) {
     ePlayStart.value = r.play_start ? isoToTs(r.play_start) : null
     // 进行中的娱乐（无结束时间）编辑时，结束时间默认填当前时间，方便直接结束本次娱乐
     ePlayEnd.value = r.play_end ? isoToTs(r.play_end) : Date.now()
-  } else {
+  } else if (it.kind === 'diaper') {
     eDiaper.value = r.type
   }
+  // care（洗澡/理发/剪指甲）：仅时间与备注，无额外字段，下方通用「时间/备注」即可编辑
   eNote.value = r.note || ''
   eTs.value = isoToTs(r.occurred_at)
   editShow.value = true
@@ -996,9 +1028,15 @@ async function saveEdit() {
         payload.play_end = tsToIso(ePlayEnd.value)
       }
       await updatePlay(editId.value, payload)
-    } else {
+    } else if (editKind.value === 'diaper') {
       await updateDiaper(editId.value, {
         type: eDiaper.value,
+        note: eNote.value || null,
+        occurred_at: tsToIso(eTs.value),
+      })
+    } else {
+      // care 分支：洗澡/理发/剪指甲，仅时间与备注
+      await updateCare(editId.value, {
         note: eNote.value || null,
         occurred_at: tsToIso(eTs.value),
       })
@@ -1026,7 +1064,8 @@ function deleteCurrent() {
         if (editKind.value === 'feeding') await deleteFeeding(editId.value)
         else if (editKind.value === 'sleep') await deleteSleep(editId.value)
         else if (editKind.value === 'play') await deletePlay(editId.value)
-        else await deleteDiaper(editId.value)
+        else if (editKind.value === 'diaper') await deleteDiaper(editId.value)
+        else await deleteCare(editId.value)
         message.success('已删除')
         editShow.value = false
         await refresh()
@@ -1358,6 +1397,9 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
 .tl-sleep { --tt: var(--t-sleep); }
 .tl-play { --tt: var(--t-play); }
 .tl-diaper { --tt: var(--t-diaper); }
+.tl-bath { --tt: var(--t-bath); }
+.tl-haircut { --tt: var(--t-haircut); }
+.tl-nails { --tt: var(--t-nails); }
 .tl-icon {
   width: 38px;
   height: 38px;

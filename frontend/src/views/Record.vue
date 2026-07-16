@@ -273,6 +273,7 @@ import { createFeeding } from '@/api/feedings'
 import { createSleep } from '@/api/sleeps'
 import { createPlay } from '@/api/plays'
 import { createDiaper } from '@/api/diapers'
+import { createCare } from '@/api/cares'
 import { getHistory, pushHistory, removeHistory } from '@/utils/history'
 import { tsToIso } from '@/utils/time'
 import PieTypeMenu from '@/components/PieTypeMenu.vue'
@@ -291,7 +292,7 @@ function goHome() {
   router.replace('/')
 }
 
-type RecType = 'breast' | 'formula' | 'food' | 'bottle' | 'supplement' | 'sleep' | 'play' | 'diaper'
+type RecType = 'breast' | 'formula' | 'food' | 'bottle' | 'supplement' | 'sleep' | 'play' | 'diaper' | 'bath' | 'haircut' | 'nails'
 const types = [
   { value: 'breast', label: '母乳', icon: '🤱' },
   { value: 'formula', label: '配方奶', icon: '🥛' },
@@ -301,6 +302,9 @@ const types = [
   { value: 'sleep', label: '睡眠', icon: '😴' },
   { value: 'play', label: '娱乐', icon: '🎡' },
   { value: 'diaper', label: '换尿布', icon: '💩' },
+  { value: 'bath', label: '洗澡', icon: '🛁' },
+  { value: 'haircut', label: '理发', icon: '💇' },
+  { value: 'nails', label: '剪指甲', icon: '✂️' },
 ]
 const diaperOpts = [
   { value: 'pee', label: '尿' },
@@ -316,7 +320,7 @@ const playPresets = ['爬爬垫', '散步', '户外娱乐', '早教', '唱歌', 
 function loadLastType(): RecType {
   try {
     const v = localStorage.getItem('ml_last_type')
-    if (v === 'breast' || v === 'formula' || v === 'bottle' || v === 'food' || v === 'supplement' || v === 'sleep' || v === 'play' || v === 'diaper') return v
+    if (v === 'breast' || v === 'formula' || v === 'bottle' || v === 'food' || v === 'supplement' || v === 'sleep' || v === 'play' || v === 'diaper' || v === 'bath' || v === 'haircut' || v === 'nails') return v
   } catch {
     /* 忽略存储异常 */
   }
@@ -701,6 +705,9 @@ async function submit() {
       await createPlay(payload)
     } else if (type.value === 'diaper') {
       await createDiaper({ babyId: currentBaby.value!.id, type: diaperType.value, note: note.value || null, occurred_at: occurredAt.value })
+    } else if (type.value === 'bath' || type.value === 'haircut' || type.value === 'nails') {
+      // 护理类（洗澡 / 理发 / 剪指甲）：仅需时间与备注，无其他结构化数据
+      await createCare({ babyId: currentBaby.value!.id, care_type: type.value, note: note.value || null, occurred_at: occurredAt.value })
     }
     message.success('已记录 🎉')
     router.replace('/')
