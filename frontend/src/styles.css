@@ -1,6 +1,19 @@
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  /* 全局禁止选区，避免 iOS 长按误选中文本弹出菜单、影响操作体验 */
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+/* 输入框 / 文本域 / 可编辑内容：放开选区，保证可正常编辑、复制 */
+input,
+textarea,
+[contenteditable='true'],
+[contenteditable=''] {
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+  user-select: text;
 }
 html,
 body,
