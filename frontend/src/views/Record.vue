@@ -263,7 +263,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, reactive, watch, onBeforeUnmount, nextTick } from 'vue'
 import { useRevealRefresh } from '@/utils/reveal'
 import { useRouter } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
@@ -391,6 +391,20 @@ function selectType(v: RecType) {
   if (sortMode.value) return // 排序模式下点击不切换类型
   type.value = v
   expanded.value = false // 选完即收起
+  scrollActiveIntoView()
+}
+
+// 扇形菜单 / 持久化恢复类型后，把类型栏滚动到对应 chip（居中）位置，保持两处选择同步可见
+function scrollActiveIntoView() {
+  nextTick(() => {
+    const i = orderedTypes.value.findIndex((t) => t.value === type.value)
+    if (i < 0) return
+    const el = chipEls[i]
+    const bar = typeRowRef.value
+    if (!el || !bar) return
+    const target = el.offsetLeft - (bar.clientWidth - el.offsetWidth) / 2
+    bar.scrollTo({ left: Math.max(0, target), behavior: 'smooth' })
+  })
 }
 function openSort() {
   expanded.value = true
@@ -609,7 +623,10 @@ async function reload() {
     }
   }
 }
-onMounted(reload)
+onMounted(() => {
+  reload()
+  scrollActiveIntoView()
+})
 // 从后台切回前台时刷新当前页面
 useRevealRefresh(reload)
 
