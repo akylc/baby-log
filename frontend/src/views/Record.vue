@@ -256,6 +256,9 @@
 
       <n-button type="primary" block size="large" :loading="loading" @click="submit">保存记录</n-button>
     </section>
+
+    <!-- 试验性功能：径向扇形类型切换（右下角，独立于上方类型栏） -->
+    <PieTypeMenu :items="orderedTypes" :current="type" @select="selectType" />
   </div>
 </template>
 
@@ -272,6 +275,7 @@ import { createPlay } from '@/api/plays'
 import { createDiaper } from '@/api/diapers'
 import { getHistory, pushHistory, removeHistory } from '@/utils/history'
 import { tsToIso } from '@/utils/time'
+import PieTypeMenu from '@/components/PieTypeMenu.vue'
 
 const router = useRouter()
 const message = useMessage()
@@ -706,6 +710,8 @@ async function submit() {
 
 <style scoped>
 .record {
+  position: relative;
+  min-height: 100%;
   padding: 12px 16px 24px;
 }
 .hd {
