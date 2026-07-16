@@ -1,7 +1,7 @@
 <template>
   <div class="record">
     <header class="hd">
-      <button class="back" type="button" aria-label="返回" @click="goHome">‹</button>
+      <button class="back" type="button" aria-label="返回" @click="goHome" @pointerup="goHome">‹</button>
       <span class="title">记一笔</span>
       <span style="width: 40px"></span>
     </header>
@@ -257,7 +257,7 @@
       <n-button type="primary" block size="large" :loading="loading" @click="submit">保存记录</n-button>
     </section>
 
-    <!-- 试验性功能：径向扇形类型切换（右下角，独立于上方类型栏） -->
+    <!-- 径向扇形类型切换（右下角，独立于上方类型栏） -->
     <PieTypeMenu :items="orderedTypes" :current="type" @select="selectType" />
   </div>
 </template>
@@ -283,7 +283,11 @@ const dialog = useDialog()
 const babyStore = useBabyStore()
 const { currentBaby } = storeToRefs(babyStore)
 
+let lastNavAt = 0
 function goHome() {
+  const now = Date.now()
+  if (now - lastNavAt < 800) return
+  lastNavAt = now
   router.replace('/')
 }
 

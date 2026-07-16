@@ -1,9 +1,8 @@
 <template>
-  <!-- 试验性功能：按住右下角圆形按钮 → 扇形径向展开全部类型 → 滑动到目标松开即切换 -->
+  <!-- 按住右下角圆形按钮 → 扇形径向展开全部类型 → 滑动到目标松开即切换 -->
   <div class="pie" ref="wrapRef">
-    <button class="pie-center" type="button" :aria-label="`扇形切换（试验）：${currentLabel}`" @pointerdown.prevent="start">
+    <button class="pie-center" type="button" :aria-label="`扇形切换：${currentLabel}`" @pointerdown.prevent="start">
       <span class="pc-ico">{{ currentIcon }}</span>
-      <span class="pie-beta">试</span>
     </button>
     <button
       v-for="(it, i) in items"
@@ -21,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onBeforeUnmount } from 'vue'
 
 interface PieItem {
   value: string
@@ -116,15 +115,27 @@ function onUp() {
   if (open.value && hoverIdx.value >= 0) emit('select', props.items[hoverIdx.value].value)
   open.value = false
   hoverIdx.value = -1
+  document.body.style.userSelect = ''
 }
 function start(e: PointerEvent) {
   e.preventDefault()
+  // 拖动期间禁止文本选区（避免按住扇形按钮拖动时选中背后页面文本）
+  window.getSelection()?.removeAllRanges()
+  document.body.style.userSelect = 'none'
   open.value = true
   hoverIdx.value = -1
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
   window.addEventListener('pointercancel', onUp)
 }
+// 组件卸载（如扇形菜单展开中触发侧滑返回）时移除 window 上的全局指针监听，
+// 避免监听器泄漏到首页、干扰返回页的点击事件
+onBeforeUnmount(() => {
+  window.removeEventListener('pointermove', onMove)
+  window.removeEventListener('pointerup', onUp)
+  window.removeEventListener('pointercancel', onUp)
+  document.body.style.userSelect = ''
+})
 </script>
 
 <style scoped>
@@ -137,6 +148,8 @@ function start(e: PointerEvent) {
   width: 0;
   height: 0;
   z-index: 1000;
+  user-select: none;
+  -webkit-user-select: none;
 }
 @media (max-width: 480px) {
   .pie {
@@ -164,17 +177,6 @@ function start(e: PointerEvent) {
   user-select: none;
   -webkit-user-select: none;
 }
-.pie-beta {
-  position: absolute;
-  right: -3px;
-  top: -3px;
-  font-size: 10px;
-  line-height: 1;
-  background: var(--accent, #ff9f43);
-  color: #fff;
-  border-radius: 8px;
-  padding: 1px 4px;
-}
 .pie-item {
   position: absolute;
   left: 0;
@@ -192,6 +194,8 @@ function start(e: PointerEvent) {
   cursor: pointer;
   transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s, border-color 0.12s;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   will-change: transform;
 }
 .pie-item.hover {

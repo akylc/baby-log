@@ -1,6 +1,6 @@
 {
   "name": "momentlog",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "private": true,
   "description": "喂养记录 — 美柚风格宝宝喂养记录应用（monorepo）",
   "scripts": {

@@ -116,7 +116,9 @@
     </section>
 
     <!-- 右下角悬浮记录按钮 -->
-    <button class="fab" type="button" aria-label="记录" @click="goRecord">
+    <!-- 同时监听 click 与 pointerup：iOS 书签(PWA)经系统侧滑返回后会吞掉返回页第一个 click，
+         pointerup 作为兜底触发跳转；goRecord 内做去重，避免正常点按时两个事件重复导航 -->
+    <button class="fab" type="button" aria-label="记录" @click="goRecord" @pointerup="goRecord">
       <span class="fab-plus">＋</span>
     </button>
 
@@ -793,7 +795,13 @@ function pickBaby(id: number) {
 function goBaby() {
   router.push('/baby')
 }
+// FAB 跳转：click + pointerup 双触发去重。正常点按会先后触发 pointerup、click，
+// 800ms 内的重复调用忽略，只导航一次；iOS 侧滑返回吞掉 click 时由 pointerup 兜底。
+let lastNavAt = 0
 function goRecord() {
+  const now = Date.now()
+  if (now - lastNavAt < 800) return
+  lastNavAt = now
   router.push('/record')
 }
 async function confirmAdd() {
