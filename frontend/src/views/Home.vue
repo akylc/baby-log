@@ -368,6 +368,7 @@ import { formatClock, tsToIso, isoToTs } from '@/utils/time'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
 import { useRevealRefresh } from '@/utils/reveal'
 import PieTypeMenu from '@/components/PieTypeMenu.vue'
+import { RECORD_TYPE_VALUES, loadTypeOrder, orderedRecordTypes } from '@/constants/recordTypes'
 
 // 供 <keep-alive include="Home"> 精确匹配缓存
 defineOptions({ name: 'Home' })
@@ -383,21 +384,11 @@ const { currentBaby, babies } = storeToRefs(babyStore)
 const appVersion = (import.meta.env as any).VITE_APP_VERSION || '—'
 const buildTime = __BUILD_TIME__
 
-// 记录类型筛选：近 7 天列表按记录类型过滤
-const ALL_TYPES = ['breast', 'formula', 'bottle', 'food', 'supplement', 'sleep', 'play', 'diaper', 'bath', 'haircut', 'nails']
-const FILTER_OPTIONS = [
-  { value: 'breast', label: '母乳', icon: '🤱' },
-  { value: 'formula', label: '配方奶', icon: '🥛' },
-  { value: 'bottle', label: '瓶喂母乳', icon: '🍼' },
-  { value: 'food', label: '辅食', icon: '🍚' },
-  { value: 'supplement', label: '营养补剂', icon: '💊' },
-  { value: 'sleep', label: '睡眠', icon: '😴' },
-  { value: 'play', label: '娱乐', icon: '🎡' },
-  { value: 'diaper', label: '换尿布', icon: '💩' },
-  { value: 'bath', label: '洗澡', icon: '🛁' },
-  { value: 'haircut', label: '理发', icon: '💇' },
-  { value: 'nails', label: '剪指甲', icon: '✂️' },
-]
+// 记录类型筛选：近 7 天列表按记录类型过滤；类型列表统一引用共享常量，确保与添加记录页排序一致
+const ALL_TYPES = RECORD_TYPE_VALUES
+// 扇形菜单与 7 天筛选下拉共用同一份（可自定义的）类型顺序：读取 localStorage 的 ml_type_order，
+// 与添加记录页扇形保持一致；用户未在添加页拖拽重排时回退到 RECORD_TYPES 默认顺序
+const FILTER_OPTIONS = computed(() => orderedRecordTypes(loadTypeOrder()))
 const FILTER_KEY = 'ml_type_filter'
 function loadFilter(): string[] {
   try {

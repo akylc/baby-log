@@ -294,6 +294,7 @@ import { createCare } from '@/api/cares'
 import { getHistory, pushHistory, removeHistory } from '@/utils/history'
 import { tsToIso } from '@/utils/time'
 import PieTypeMenu from '@/components/PieTypeMenu.vue'
+import { RECORD_TYPES as types, loadTypeOrder, saveTypeOrder, type RecType } from '@/constants/recordTypes'
 
 const router = useRouter()
 const message = useMessage()
@@ -309,20 +310,7 @@ function goHome() {
   router.replace('/')
 }
 
-type RecType = 'breast' | 'formula' | 'food' | 'bottle' | 'supplement' | 'sleep' | 'play' | 'diaper' | 'bath' | 'haircut' | 'nails'
-const types = [
-  { value: 'breast', label: '母乳', icon: '🤱' },
-  { value: 'formula', label: '配方奶', icon: '🥛' },
-  { value: 'bottle', label: '瓶喂母乳', icon: '🍼' },
-  { value: 'food', label: '辅食', icon: '🍚' },
-  { value: 'supplement', label: '营养补剂', icon: '💊' },
-  { value: 'sleep', label: '睡眠', icon: '😴' },
-  { value: 'play', label: '娱乐', icon: '🎡' },
-  { value: 'diaper', label: '换尿布', icon: '💩' },
-  { value: 'bath', label: '洗澡', icon: '🛁' },
-  { value: 'haircut', label: '理发', icon: '💇' },
-  { value: 'nails', label: '剪指甲', icon: '✂️' },
-]
+// 记录类型列表统一引用共享常量（见 @/constants/recordTypes），确保与首页扇形菜单排序一致
 const diaperOpts = [
   { value: 'pee', label: '尿' },
   { value: 'poo', label: '便' },
@@ -353,34 +341,8 @@ watch(type, (v) => {
 })
 
 // 类型选项顺序：支持「排序」模式下拖拽重排，顺序持久化到 localStorage
-const TYPE_VALUES = types.map((t) => t.value)
-function loadTypeOrder(): string[] {
-  try {
-    const raw = localStorage.getItem('ml_type_order')
-    if (raw) {
-      const arr = JSON.parse(raw)
-      if (
-        Array.isArray(arr) &&
-        arr.length === TYPE_VALUES.length &&
-        arr.every((v) => TYPE_VALUES.includes(v))
-      ) {
-        return arr
-      }
-    }
-  } catch {
-    /* 忽略存储异常 */
-  }
-  return TYPE_VALUES.slice()
-}
-const order = ref<string[]>(loadTypeOrder())
+const order = ref<RecType[]>(loadTypeOrder())
 const orderedTypes = computed(() => order.value.map((v) => types.find((t) => t.value === v)!).filter(Boolean))
-function saveTypeOrder() {
-  try {
-    localStorage.setItem('ml_type_order', JSON.stringify(order.value))
-  } catch {
-    /* 忽略存储异常 */
-  }
-}
 
 // 类型选择：折叠触发 → 展开网格选择；「排序」模式下在网格内拖拽重排（Pointer Events，鼠标/触摸通用）
 const expanded = ref(false)
@@ -428,7 +390,7 @@ function openSort() {
   sortMode.value = true
 }
 function finishSort() {
-  if (sortMode.value) saveTypeOrder()
+  if (sortMode.value) saveTypeOrder(order.value)
   sortMode.value = false
   expanded.value = false
   dragging.value = -1
@@ -493,7 +455,7 @@ function onPointerUp() {
   dragDx.value = 0
   dragDy.value = 0
   targetIndex.value = -1
-  saveTypeOrder()
+  saveTypeOrder(order.value)
 }
 function chipStyle(i: number): Record<string, string> {
   if (sortMode.value && dragging.value === i) {
