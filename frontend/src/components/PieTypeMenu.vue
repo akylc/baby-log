@@ -1,6 +1,8 @@
 <template>
   <!-- 按住右下角圆形按钮 → 扇形径向展开全部类型 → 滑动到目标松开即切换 -->
   <div class="pie" ref="wrapRef">
+    <!-- 扇形展开时的背景模糊层：以入口为圆心的圆，直径随最外圈动态放大，模糊覆盖全部扇形项 -->
+    <div class="pie-scrim" :class="{ show: open }" :style="{ width: scrimSize + 'px', height: scrimSize + 'px' }" aria-hidden="true"></div>
     <!-- 滑动引导线：从入口按钮中心(半透明)到手指位置(不透明) -->
     <svg v-if="open && lineActive" class="pie-line" width="0" height="0" aria-hidden="true">
       <defs>
@@ -103,6 +105,14 @@ const layout = computed(() => {
   }
   return arr
 })
+
+// 背景模糊圆直径：取最外圈扇形项到入口的距离 + 余量(让项外围背景也模糊)，
+// 保证所有圈(含第三圈及以上)的背景都被模糊覆盖，而非只糊前几圈
+const scrimRadius = computed(() => {
+  const maxR = layout.value.reduce((m, p) => Math.max(m, Math.hypot(p.x, p.y)), 0)
+  return maxR + 130
+})
+const scrimSize = computed(() => scrimRadius.value * 2)
 
 const currentItem = computed(() => props.items.find((t) => t.value === props.current))
 const currentIcon = computed(() => currentItem.value?.icon ?? '⊕')
@@ -213,13 +223,40 @@ defineExpose({ armGuard })
     right: 48px;
   }
 }
+/* 背景模糊层：以入口(0,0)为圆心、直径由 scrimSize 动态给出的圆，展开时淡入。
+   只模糊扇形展开区域(圆形)的背景，menu 项(z-index:2)在其上层保持清晰。
+   mask 渐隐推到圆边缘(100%)，使模糊有效区覆盖最外圈(含第三圈及以上)而非提前消失。 */
+.pie-scrim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  z-index: 0; /* 页面内容之上、引导线与菜单项之下 */
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.55);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  /* 中心略加一层卡片色薄纱、向外柔和淡出，使扇形聚焦而不显生硬 */
+  background: radial-gradient(circle closest-side,
+    color-mix(in srgb, var(--card) 30%, transparent) 0%,
+    color-mix(in srgb, var(--card) 14%, transparent) 48%,
+    transparent 82%);
+  -webkit-mask-image: radial-gradient(circle closest-side, #000 74%, transparent 100%);
+  mask-image: radial-gradient(circle closest-side, #000 74%, transparent 100%);
+  transition: opacity 0.22s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pie-scrim.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
 .pie-line {
   position: absolute;
   left: 0;
   top: 0;
   overflow: visible;
   pointer-events: none;
-  z-index: 0; /* 在入口按钮与扇形项之下，仅作视觉引导 */
+  z-index: 1; /* 在模糊层之上、入口按钮与扇形项之下，仅作视觉引导 */
 }
 .pie-center {
   position: absolute;
