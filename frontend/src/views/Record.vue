@@ -240,6 +240,23 @@
         </div>
       </template>
 
+      <template v-else-if="type === 'bath'">
+        <div class="with-diaper">
+          <n-checkbox v-model:checked="withDiaper" block size="large">同时添加换尿布记录</n-checkbox>
+        </div>
+        <div class="field" v-if="withDiaper">
+          <label>换尿布类型</label>
+          <div class="seg">
+            <button
+              v-for="o in diaperOpts"
+              :key="o.value"
+              :class="['seg-btn', { active: diaperType === o.value }]"
+              @click="diaperType = o.value"
+            >{{ o.label }}</button>
+          </div>
+        </div>
+      </template>
+
       <div class="field" v-if="type !== 'sleep' && type !== 'play'">
         <label>时间</label>
         <n-date-picker v-model:value="occurredTs" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
@@ -495,6 +512,8 @@ onBeforeUnmount(() => {
 })
 
 const diaperType = ref<'pee' | 'poo' | 'both'>('pee')
+// 洗澡时是否同时落一条换尿布记录
+const withDiaper = ref(false)
 const leftDuration = ref<number | null>(null)
 const rightDuration = ref<number | null>(null)
 const sleepStart = ref<number>(Date.now())
@@ -725,6 +744,10 @@ async function submit() {
     } else if (type.value === 'bath' || type.value === 'haircut' || type.value === 'nails') {
       // 护理类（洗澡 / 理发 / 剪指甲）：仅需时间与备注，无其他结构化数据
       await createCare({ babyId: currentBaby.value!.id, care_type: type.value, note: note.value || null, occurred_at: occurredAt.value })
+      // 洗澡时勾选「同时添加换尿布记录」：同时间再落一条换尿布记录（默认尿，可在勾选后调整类型）
+      if (type.value === 'bath' && withDiaper.value) {
+        await createDiaper({ babyId: currentBaby.value!.id, type: diaperType.value, note: note.value || null, occurred_at: occurredAt.value })
+      }
     }
     message.success('已记录 🎉')
     router.replace('/')
@@ -946,6 +969,19 @@ async function submit() {
 .seg {
   display: flex;
   gap: 8px;
+}
+/* 洗澡「同时添加换尿布记录」整行卡片：加高点击区域、与上方类型栏拉开间距防误触 */
+.with-diaper {
+  display: flex;
+  align-items: center;
+  min-height: 54px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 .seg-btn {
   flex: 1;
