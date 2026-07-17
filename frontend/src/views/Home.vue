@@ -115,12 +115,8 @@
       <div class="build-info">构建于 {{ buildTime }} · v{{ appVersion }}</div>
     </section>
 
-    <!-- 右下角悬浮记录按钮 -->
-    <!-- 同时监听 click 与 pointerup：iOS 书签(PWA)经系统侧滑返回后会吞掉返回页第一个 click，
-         pointerup 作为兜底触发跳转；goRecord 内做去重，避免正常点按时两个事件重复导航 -->
-    <button class="fab" type="button" aria-label="记录" @click="goRecord" @pointerup="goRecord">
-      <span class="fab-plus">＋</span>
-    </button>
+    <!-- 右下角扇形菜单：按住入口按钮滑动到目标类型松开，即跳转到添加记录页并切换到该类型 -->
+    <PieTypeMenu ref="pieRef" :items="FILTER_OPTIONS" :current="homeLastType" @select="onPickType" />
 
     <!-- 切换宝宝弹框 -->
     <Transition name="sheet">
@@ -371,6 +367,7 @@ import { listCares, updateCare, deleteCare, type Care } from '@/api/cares'
 import { formatClock, tsToIso, isoToTs } from '@/utils/time'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
 import { useRevealRefresh } from '@/utils/reveal'
+import PieTypeMenu from '@/components/PieTypeMenu.vue'
 
 // 供 <keep-alive include="Home"> 精确匹配缓存
 defineOptions({ name: 'Home' })
@@ -817,6 +814,9 @@ function fmtDate(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 function openSwitch() {
+  // iOS 书签(standalone)从添加页返回时，返回键释放事件会穿透到同坐标的左上角入口，
+  // 误触发切换宝宝弹框；返回后短暂屏蔽此类穿透点击
+  if (Date.now() < returnGuardUntil) return
   switchShow.value = true
 }
 function pickBaby(id: number) {
@@ -826,13 +826,16 @@ function pickBaby(id: number) {
 function goBaby() {
   router.push('/baby')
 }
-// FAB 跳转：click + pointerup 双触发去重。正常点按会先后触发 pointerup、click，
-// 800ms 内的重复调用忽略，只导航一次；iOS 侧滑返回吞掉 click 时由 pointerup 兜底。
-let lastNavAt = 0
-function goRecord() {
-  const now = Date.now()
-  if (now - lastNavAt < 800) return
-  lastNavAt = now
+// 扇形菜单选中类型：写入「上次选择类型」并跳转到添加记录页，Record 挂载即自动切到该类型
+const HOME_LAST_KEY = 'ml_last_type'
+function loadHomeLast(): string {
+  return localStorage.getItem(HOME_LAST_KEY) || 'breast'
+}
+const homeLastType = ref<string>(loadHomeLast())
+// 扇形菜单实例引用：返回首页后调用 armGuard() 屏蔽 iOS 书签返回穿透误触发展开
+const pieRef = ref<{ armGuard: () => void } | null>(null)
+function onPickType(v: string) {
+  localStorage.setItem(HOME_LAST_KEY, v)
   router.push('/record')
 }
 async function confirmAdd() {
@@ -1089,12 +1092,20 @@ onMounted(refresh)
 // 缓存的 DOM 仍在，列表不会闪空；同时拉取最新数据更新视图。
 // 首次挂载时 onActivated 也会触发一次，用 activatedOnce 跳过（onMounted 已加载）。
 let activatedOnce = false
+// 从其他页(如添加记录)返回首页后，iOS 书签模式会把返回点击的释放事件穿透到
+// 同坐标的左上角「切换宝宝」入口，误触发弹框；返回后 700ms 内屏蔽该入口的点击
+let returnGuardUntil = 0
 onActivated(() => {
   if (!activatedOnce) {
     activatedOnce = true
     return
   }
+  returnGuardUntil = Date.now() + 700
+  // 同步屏蔽 iOS 书签从添加页返回时，合成 pointerdown 落在扇形入口误触发展开
+  pieRef.value?.armGuard()
   refresh()
+  // 从添加记录页返回后，入口按钮图标同步为最新选择类型
+  homeLastType.value = loadHomeLast()
 })
 // 从后台切回前台时刷新当前页面
 useRevealRefresh(refresh)
@@ -1519,39 +1530,6 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
   .sk-line,
   .sk-time {
     animation: none;
-  }
-}
-.fab {
-  position: fixed;
-  right: calc(50% - 240px + 20px);
-  bottom: calc(24px + env(safe-area-inset-bottom));
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: none;
-  background: linear-gradient(135deg, #ff95b8, #f25c8a);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(242, 92, 138, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 40;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-.fab:active {
-  transform: scale(0.92);
-  box-shadow: 0 3px 10px rgba(242, 92, 138, 0.4);
-}
-.fab-plus {
-  font-size: 30px;
-  line-height: 1;
-  font-weight: 300;
-  margin-top: -2px;
-}
-@media (max-width: 480px) {
-  .fab {
-    right: 20px;
   }
 }
 .sheet-mask {

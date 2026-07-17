@@ -57,6 +57,8 @@ const emit = defineEmits<{ (e: 'select', value: string): void }>()
 const open = ref(false)
 const hoverIdx = ref(-1)
 const wrapRef = ref<HTMLElement | null>(null)
+// 返回激活锁：从其他页返回首页后，屏蔽 iOS 书签模式穿透来的合成 pointerdown 误触发展开
+let guardUntil = 0
 
 // 滑动引导线：手指相对入口中心的偏移；lineActive 表示手指已移动、可绘线
 const fingerX = ref(0)
@@ -163,6 +165,8 @@ function onUp() {
   document.body.style.userSelect = ''
 }
 function start(e: PointerEvent) {
+  // 屏蔽 iOS 书签从添加页返回首页时，返回手势合成 pointerdown 落在本入口误触发展开
+  if (Date.now() < guardUntil) return
   e.preventDefault()
   // 拖动期间禁止文本选区（避免按住扇形按钮拖动时选中背后页面文本）
   window.getSelection()?.removeAllRanges()
@@ -184,6 +188,11 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointercancel', onUp)
   document.body.style.userSelect = ''
 })
+// 由父组件在从其他页(如添加记录)返回首页时调用，屏蔽返回穿透误触发的扇形展开（iOS 书签）
+function armGuard() {
+  guardUntil = Date.now() + 700
+}
+defineExpose({ armGuard })
 </script>
 
 <style scoped>
