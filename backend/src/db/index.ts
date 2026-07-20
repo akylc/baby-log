@@ -96,6 +96,16 @@ CREATE TABLE IF NOT EXISTS symptoms (
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS medicines (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  baby_id       INTEGER NOT NULL REFERENCES babies(id) ON DELETE CASCADE,
+  medicine_name TEXT NOT NULL,            -- 药品名称（必填）
+  dosage        TEXT,                     -- 剂量（如 2.5ml / 1片，选填）
+  note          TEXT,
+  occurred_at   TEXT NOT NULL,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_babies_user    ON babies(user_id);
 CREATE INDEX IF NOT EXISTS idx_feedings_baby  ON feedings(baby_id);
 CREATE INDEX IF NOT EXISTS idx_sleeps_baby    ON sleeps(baby_id);
@@ -103,6 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_plays_baby     ON plays(baby_id);
 CREATE INDEX IF NOT EXISTS idx_diapers_baby   ON diapers(baby_id);
 CREATE INDEX IF NOT EXISTS idx_cares_baby     ON cares(baby_id);
 CREATE INDEX IF NOT EXISTS idx_symptoms_baby  ON symptoms(baby_id);
+CREATE INDEX IF NOT EXISTS idx_medicines_baby ON medicines(baby_id);
 `
 
 db.exec(schema)

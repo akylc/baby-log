@@ -11,6 +11,7 @@ export type RecType =
   | 'haircut'
   | 'nails'
   | 'symptom'
+  | 'medicine'
 
 export interface RecordTypeOption {
   value: RecType
@@ -32,6 +33,7 @@ export const RECORD_TYPES: RecordTypeOption[] = [
   { value: 'haircut', label: '理发', icon: '💇' },
   { value: 'nails', label: '剪指甲', icon: '✂️' },
   { value: 'symptom', label: '症状', icon: '🤒' },
+  { value: 'medicine', label: '用药', icon: '💉' },
 ]
 
 // 仅 value 的字符串数组（用于筛选校验等场景）

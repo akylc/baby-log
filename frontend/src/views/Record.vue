@@ -280,6 +280,37 @@
         </div>
       </template>
 
+      <template v-else-if="type === 'medicine'">
+        <div class="field">
+          <label>药品名称（必填）</label>
+          <n-input
+            v-model:value="medicineName"
+            placeholder="如：退烧药、益生菌，也可手动输入"
+            clearable
+          />
+        </div>
+        <div class="field">
+          <label>快捷药品</label>
+          <div class="seg seg-wrap">
+            <button
+              v-for="t in medicinePresets"
+              :key="t"
+              :class="['seg-btn', { active: medicineName === t }]"
+              type="button"
+              @click="medicineName = medicineName === t ? '' : t"
+            >{{ t }}</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>剂量（选填）</label>
+          <n-input
+            v-model:value="dosage"
+            placeholder="如：2.5ml / 1片 / 5mg/kg"
+            clearable
+          />
+        </div>
+      </template>
+
       <div class="field" v-if="type !== 'sleep' && type !== 'play'">
         <label>时间</label>
         <n-date-picker v-model:value="occurredTs" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
@@ -315,6 +346,7 @@ import { createPlay } from '@/api/plays'
 import { createDiaper } from '@/api/diapers'
 import { createCare } from '@/api/cares'
 import { createSymptom } from '@/api/symptoms'
+import { createMedicine } from '@/api/medicines'
 import { getHistory, pushHistory, removeHistory } from '@/utils/history'
 import { tsToIso } from '@/utils/time'
 import PieTypeMenu from '@/components/PieTypeMenu.vue'
@@ -349,7 +381,7 @@ const playPresets = ['爬爬垫', '散步', '户外娱乐', '早教', '唱歌', 
 function loadLastType(): RecType {
   try {
     const v = localStorage.getItem('ml_last_type')
-    if (v === 'breast' || v === 'formula' || v === 'bottle' || v === 'food' || v === 'supplement' || v === 'sleep' || v === 'play' || v === 'diaper' || v === 'bath' || v === 'haircut' || v === 'nails' || v === 'symptom') return v
+    if (v === 'breast' || v === 'formula' || v === 'bottle' || v === 'food' || v === 'supplement' || v === 'sleep' || v === 'play' || v === 'diaper' || v === 'bath' || v === 'haircut' || v === 'nails' || v === 'symptom' || v === 'medicine') return v
   } catch {
     /* 忽略存储异常 */
   }
@@ -503,6 +535,10 @@ const withDiaper = ref(false)
 // 症状快捷标签（选填；常用：发烧/呕吐/咳嗽/湿疹）
 const symptomPresets = ['发烧', '呕吐', '咳嗽', '湿疹']
 const symptomTag = ref<string>('')
+// 用药：药名（必填，常用预设可点选+手动输入）+ 剂量（选填）
+const medicinePresets = ['布洛芬混悬滴剂', '午时茶颗粒']
+const medicineName = ref<string>('')
+const dosage = ref<string>('')
 const leftDuration = ref<number | null>(null)
 const rightDuration = ref<number | null>(null)
 const sleepStart = ref<number>(Date.now())
@@ -740,6 +776,13 @@ async function submit() {
     } else if (type.value === 'symptom') {
       // 症状记录：时间 + 可选快捷标签 + 备注
       await createSymptom({ babyId: currentBaby.value!.id, symptom_tag: symptomTag.value || null, note: note.value || null, occurred_at: occurredAt.value })
+    } else if (type.value === 'medicine') {
+      // 用药记录：药品名（必填）+ 剂量（选填）+ 备注
+      if (!medicineName.value.trim()) {
+        message.error('请填写药品名称')
+        return
+      }
+      await createMedicine({ babyId: currentBaby.value!.id, medicine_name: medicineName.value.trim(), dosage: dosage.value || null, note: note.value || null, occurred_at: occurredAt.value })
     }
     message.success('已记录 🎉')
     router.replace('/')
