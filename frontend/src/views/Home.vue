@@ -397,11 +397,15 @@
             </div>
           </div>
           <div class="filter-actions">
-            <div class="filter-actions-row">
-              <n-button @click="selectAll">全选</n-button>
-              <n-button :disabled="typeFilter.length === 0" @click="clearAll">取消选中</n-button>
-            </div>
-            <n-button block type="primary" @click="filterShow = false">完成</n-button>
+            <button
+              class="filter-all"
+              type="button"
+              :class="{ active: !isFilterActive }"
+              @click="clearFilter"
+            >
+              <span class="fa-ico">✓</span>
+              <span class="fa-label">所有类型</span>
+            </button>
           </div>
         </div>
       </div>
@@ -449,20 +453,23 @@ const ALL_TYPES = RECORD_TYPE_VALUES
 // 与添加记录页扇形保持一致；用户未在添加页拖拽重排时回退到 RECORD_TYPES 默认顺序
 const FILTER_OPTIONS = computed(() => orderedRecordTypes(loadTypeOrder()))
 const FILTER_KEY = 'ml_type_filter'
+// 单条件筛选模型：typeFilter 仅允许 0（所有）或 1 个类型。
+// 旧版本的多选数据统一回退为「所有」(空)，避免残留多选状态。
 function loadFilter(): string[] {
   try {
     const raw = localStorage.getItem(FILTER_KEY)
     if (raw) {
       const arr = JSON.parse(raw)
-      if (Array.isArray(arr) && arr.every((v) => ALL_TYPES.includes(v))) return arr
+      if (Array.isArray(arr) && arr.length <= 1 && arr.every((v) => ALL_TYPES.includes(v))) return arr
     }
   } catch {
     /* 忽略存储异常 */
   }
-  return ALL_TYPES.slice()
+  return []
 }
 const typeFilter = ref<string[]>(loadFilter())
-const isFilterActive = computed(() => typeFilter.value.length < ALL_TYPES.length)
+// 选中了某个具体类型才视为“筛选中”；空 = 所有（不过滤）
+const isFilterActive = computed(() => typeFilter.value.length > 0)
 const filterShow = ref(false)
 function saveFilter() {
   try {
@@ -471,21 +478,17 @@ function saveFilter() {
     /* 忽略存储异常 */
   }
 }
+// 单条件筛选：点击某类型即“仅选中它”并直接关闭弹层；再次点击同一类型则取消（回到所有）并关闭
 function toggleType(v: string) {
-  if (typeFilter.value.includes(v)) {
-    typeFilter.value = typeFilter.value.filter((x) => x !== v)
-  } else {
-    typeFilter.value = [...typeFilter.value, v]
-  }
+  typeFilter.value = typeFilter.value[0] === v ? [] : [v]
   saveFilter()
+  filterShow.value = false
 }
-function selectAll() {
-  typeFilter.value = ALL_TYPES.slice()
-  saveFilter()
-}
-function clearAll() {
+// 「所有」：清空筛选，展示全部类型，并直接关闭弹层
+function clearFilter() {
   typeFilter.value = []
   saveFilter()
+  filterShow.value = false
 }
 
 const today = ref(todayStr())
@@ -604,27 +607,30 @@ const timeline = ref<{ time: string; sortKey: string; icon: string; title: strin
 // 切换筛选时调用，无需重新请求后端。
 function rebuild() {
   const set = new Set(typeFilter.value)
-  feedings.value = set.size === ALL_TYPES.length ? allFeedings.value : allFeedings.value.filter((r) => set.has(r.type))
-  sleeps.value = set.has('sleep') ? allSleeps.value : []
-  diapers.value = set.has('diaper') ? allDiapers.value : []
-  plays.value = set.has('play') ? allPlays.value : []
-  cares.value = set.has('bath') || set.has('haircut') || set.has('nails')
-    ? allCares.value.filter((r) => set.has(r.care_type))
-    : []
-  symptoms.value = set.has('symptom') ? allSymptoms.value : []
-  medicines.value = set.has('medicine') ? allMedicines.value : []
+  const noFilter = set.size === 0 // 空 = 所有（不过滤）
+  feedings.value = noFilter ? allFeedings.value : allFeedings.value.filter((r) => set.has(r.type))
+  sleeps.value = noFilter ? allSleeps.value : set.has('sleep') ? allSleeps.value : []
+  diapers.value = noFilter ? allDiapers.value : set.has('diaper') ? allDiapers.value : []
+  plays.value = noFilter ? allPlays.value : set.has('play') ? allPlays.value : []
+  cares.value = noFilter
+    ? allCares.value
+    : set.has('bath') || set.has('haircut') || set.has('nails')
+      ? allCares.value.filter((r) => set.has(r.care_type))
+      : []
+  symptoms.value = noFilter ? allSymptoms.value : set.has('symptom') ? allSymptoms.value : []
+  medicines.value = noFilter ? allMedicines.value : set.has('medicine') ? allMedicines.value : []
   const prevDayLastByType: Record<string, number> = {}
   const bump = (key: string, ms: number) => {
     if (prevDayLastByType[key] == null || ms > prevDayLastByType[key]) prevDayLastByType[key] = ms
   }
-  if (set.has('sleep')) prevSleeps.value.forEach((r) => bump('sleep', sleepAnchor(r)))
-  if (set.has('play')) prevPlays.value.forEach((r) => bump('play', playAnchor(r)))
-  if (set.has('diaper')) prevDiapers.value.forEach((r) => bump('diaper', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
-  if (set.has('bath') || set.has('haircut') || set.has('nails')) prevCares.value.forEach((r) => bump(r.care_type, new Date(r.occurred_at.replace(' ', 'T')).getTime()))
-  if (set.has('symptom')) prevSymptoms.value.forEach((r) => bump('symptom', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
-  if (set.has('medicine')) prevMedicines.value.forEach((r) => bump('medicine', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
+  if (noFilter || set.has('sleep')) prevSleeps.value.forEach((r) => bump('sleep', sleepAnchor(r)))
+  if (noFilter || set.has('play')) prevPlays.value.forEach((r) => bump('play', playAnchor(r)))
+  if (noFilter || set.has('diaper')) prevDiapers.value.forEach((r) => bump('diaper', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
+  if (noFilter || set.has('bath') || set.has('haircut') || set.has('nails')) prevCares.value.forEach((r) => bump(r.care_type, new Date(r.occurred_at.replace(' ', 'T')).getTime()))
+  if (noFilter || set.has('symptom')) prevSymptoms.value.forEach((r) => bump('symptom', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
+  if (noFilter || set.has('medicine')) prevMedicines.value.forEach((r) => bump('medicine', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
   prevFeedings.value.forEach((r) => {
-    if (set.has(r.type)) bump(r.type, new Date(r.occurred_at.replace(' ', 'T')).getTime())
+    if (noFilter || set.has(r.type)) bump(r.type, new Date(r.occurred_at.replace(' ', 'T')).getTime())
   })
   buildTimeline(prevDayLastByType)
 }
@@ -1976,13 +1982,53 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
   border-top: 1px solid var(--border-soft);
   flex: none;
 }
-.filter-actions-row {
+.filter-all {
+  width: 100%;
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 10px;
+  min-height: 48px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.15s, color 0.15s, background 0.15s;
 }
-.filter-actions-row :deep(.n-button) {
-  flex: 1 1 0;
-  min-width: 0;
+.filter-all:hover {
+  border-color: var(--primary);
+  color: var(--primary-deep);
+  background: var(--card-pink);
+}
+.filter-all:active {
+  transform: scale(0.985);
+}
+.filter-all.active {
+  border-style: solid;
+  border-color: var(--primary);
+  color: var(--primary-deep);
+  background: var(--card-pink);
+}
+.filter-all .fa-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 16%, var(--card));
+  transition: color 0.15s, background 0.15s;
+}
+.filter-all.active .fa-ico {
+  color: #fff;
+  background: var(--primary);
 }
 .sleep-dur-auto {
   font-size: 18px;
