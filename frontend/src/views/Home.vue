@@ -116,7 +116,8 @@
     </section>
 
     <!-- 右下角扇形菜单：按住入口按钮滑动到目标类型松开，即跳转到添加记录页并切换到该类型 -->
-    <PieTypeMenu ref="pieRef" :items="FILTER_OPTIONS" :current="homeLastType" @select="onPickType" />
+    <!-- 任一弹窗（编辑记录/筛选类型/切换宝宝）打开时隐藏，避免入口按钮浮在弹窗之上 -->
+    <PieTypeMenu v-show="!(editShow || filterShow || switchShow)" ref="pieRef" :items="FILTER_OPTIONS" :current="homeLastType" @select="onPickType" />
 
     <!-- 切换宝宝弹框 -->
     <Transition name="sheet">
@@ -326,18 +327,20 @@
             <button class="sheet-x" type="button" @click="filterShow = false" aria-label="关闭">×</button>
           </div>
           <div class="sheet-body filter-body">
-            <button
-              v-for="opt in FILTER_OPTIONS"
-              :key="opt.value"
-              type="button"
-              class="filter-row"
-              :class="{ on: typeFilter.includes(opt.value) }"
-              @click="toggleType(opt.value)"
-            >
-              <span class="fi">{{ opt.icon }}</span>
-              <span class="fl">{{ opt.label }}</span>
-              <span class="fcheck">{{ typeFilter.includes(opt.value) ? '✓' : '' }}</span>
-            </button>
+            <div class="filter-grid">
+              <button
+                v-for="opt in FILTER_OPTIONS"
+                :key="opt.value"
+                type="button"
+                class="filter-cell"
+                :class="{ on: typeFilter.includes(opt.value) }"
+                @click="toggleType(opt.value)"
+              >
+                <span class="fcheck">{{ typeFilter.includes(opt.value) ? '✓' : '' }}</span>
+                <span class="fi">{{ opt.icon }}</span>
+                <span class="fl">{{ opt.label }}</span>
+              </button>
+            </div>
           </div>
           <div class="filter-actions">
             <div class="filter-actions-row">
@@ -1798,43 +1801,52 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
-.filter-row {
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.filter-cell {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  width: 100%;
+  justify-content: center;
+  gap: 6px;
+  min-height: 72px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 8px;
+  padding: 12px 8px;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   transition: background 0.15s, border-color 0.15s;
 }
-.filter-row:active {
+.filter-cell:active {
   background: var(--card-pink);
 }
-.filter-row.on {
+.filter-cell.on {
   border-color: var(--primary);
   background: var(--card-pink);
 }
-.filter-row .fi {
-  font-size: 20px;
-  flex: none;
+.filter-cell .fi {
+  font-size: 24px;
+  line-height: 1;
 }
-.filter-row .fl {
-  flex: 1;
-  min-width: 0;
-  font-size: 14px;
+.filter-cell .fl {
+  font-size: 13px;
   font-weight: 500;
   color: var(--text);
 }
-.filter-row .fcheck {
-  flex: none;
-  width: 20px;
+.filter-cell .fcheck {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
   text-align: center;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--primary);
 }
