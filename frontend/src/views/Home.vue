@@ -456,6 +456,16 @@ function shiftDateStr(d: string, delta: number): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`
 }
+// 入睡时间距今天的天数（用于跨午夜睡眠在时间线标注「昨天/前天」）
+function dayDiffFromToday(iso: string): number {
+  const day = (iso || '').slice(0, 10)
+  const [y, m, d] = day.split('-').map(Number)
+  if (!y) return 0
+  const dt = new Date(y, m - 1, d)
+  const [ty, tm, td] = today.value.split('-').map(Number)
+  const tt = new Date(ty, tm - 1, td)
+  return Math.round((tt.getTime() - dt.getTime()) / 86400000)
+}
 function shiftDay(delta: number) {
   const [y, m, d] = selectedDate.value.split('-').map(Number)
   const dt = new Date(y, m - 1, d)
@@ -654,11 +664,27 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
     items.push({ time: formatClock(f.occurred_at), sortKey: f.occurred_at, icon, title, sub: f.note || undefined, kind: 'feeding', type: f.type, id: f.id, raw: f, anchorTs: new Date(f.occurred_at.replace(' ', 'T')).getTime(), gapStartTs: new Date(f.occurred_at.replace(' ', 'T')).getTime() })
   })
   sleeps.value.forEach((s) => {
+    // 排序锚点：优先用「醒来时间」；进行中（无醒来时间）用当前时间，使其在列表中始终置顶（最新）
+    const sleepSortKey = s.sleep_end ? s.sleep_end : tsToIso(Date.now())
+    // 入睡时间（无 sleep_start 时回退 occurred_at）。若其日期与本条记录「分组日」(=醒来时间所在日)不同，
+    // 说明是跨午夜睡眠（如 23:00 入睡、今晨 07:00 醒来，会归到「今日」分组），前缀标注「昨天/前天」以便区分
+    const startIso = s.sleep_start || s.occurred_at
+    const startDay = startIso ? startIso.slice(0, 10) : sleepSortKey.slice(0, 10)
+    let dayTag = ''
+    if (startDay !== sleepSortKey.slice(0, 10)) {
+      const diff = dayDiffFromToday(startIso || sleepSortKey)
+      if (diff === 1) dayTag = '昨天 '
+      else if (diff === 2) dayTag = '前天 '
+      else {
+        const [, mm, dd] = startDay.split('-').map(Number)
+        dayTag = `${Number(mm)}月${Number(dd)}日 `
+      }
+    }
     const timeStr = s.sleep_start && s.sleep_end
       ? `${formatClock(s.sleep_start)} → ${formatClock(s.sleep_end)}`
       : formatClock(s.occurred_at)
     const title = s.duration_min > 0 ? `睡眠 ${fmtDuration(s.duration_min)}` : '睡眠 · 进行中'
-    items.push({ time: timeStr, sortKey: s.occurred_at, icon: '😴', title, sub: s.note || undefined, kind: 'sleep', type: 'sleep', id: s.id, raw: s, anchorTs: sleepAnchor(s), gapStartTs: s.sleep_start ? new Date(s.sleep_start.replace(' ', 'T')).getTime() : sleepAnchor(s) })
+    items.push({ time: dayTag + timeStr, sortKey: sleepSortKey, icon: '😴', title, sub: s.note || undefined, kind: 'sleep', type: 'sleep', id: s.id, raw: s, anchorTs: sleepAnchor(s), gapStartTs: s.sleep_start ? new Date(s.sleep_start.replace(' ', 'T')).getTime() : sleepAnchor(s) })
   })
   diapers.value.forEach((d) => {
     const map: Record<string, string> = { pee: '尿片', poo: '便便', both: '尿+便' }
@@ -754,7 +780,11 @@ function dayLabel(day: string): string {
 
 function daySummary(day: string): string {
   const f = feedings.value.filter((x) => x.occurred_at.slice(0, 10) === day)
-  const sl = sleeps.value.filter((x) => x.occurred_at.slice(0, 10) === day)
+  // 睡眠按「醒来时间」归属当日：有醒来时间取其日期，进行中（无醒来时间）归到今天，与时间线分组(sortKey)一致
+  const sl = sleeps.value.filter((x) => {
+    const d = x.sleep_end ? x.sleep_end.slice(0, 10) : today.value
+    return d === day
+  })
   const d = diapers.value.filter((x) => x.occurred_at.slice(0, 10) === day)
   const parts: string[] = []
   if (f.length) {

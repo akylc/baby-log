@@ -211,7 +211,7 @@ defineExpose({ armGuard })
   /* 对齐「首页添加按钮 .fab」的中心：FAB 为 56px，right/bottom 定位其边缘，
      故锚点需外移半宽(28px)以重合 FAB 中心，避免入口按钮偏右下、超出页面 */
   right: calc(50% - 240px + 48px);
-  bottom: calc(52px + env(safe-area-inset-bottom));
+  bottom: calc(92px + env(safe-area-inset-bottom));
   width: 0;
   height: 0;
   z-index: 1000;

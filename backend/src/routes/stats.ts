@@ -15,7 +15,7 @@ const statsRoutes: FastifyPluginAsync = async (fastify) => {
       'SELECT * FROM feedings WHERE baby_id=? AND occurred_at >= ? AND occurred_at < ? ORDER BY occurred_at ASC',
     ).all(baby.id, start, end) as any[]
     const sleeps = db.prepare(
-      'SELECT duration_min FROM sleeps WHERE baby_id=? AND occurred_at >= ? AND occurred_at < ?',
+      'SELECT duration_min FROM sleeps WHERE baby_id=? AND COALESCE(sleep_end, occurred_at) >= ? AND COALESCE(sleep_end, occurred_at) < ?',
     ).all(baby.id, start, end) as any[]
     const diaperCount = (db.prepare(
       'SELECT COUNT(*) AS c FROM diapers WHERE baby_id=? AND occurred_at >= ? AND occurred_at < ?',
