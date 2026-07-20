@@ -87,12 +87,22 @@ CREATE TABLE IF NOT EXISTS cares (
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS symptoms (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  baby_id      INTEGER NOT NULL REFERENCES babies(id) ON DELETE CASCADE,
+  symptom_tag  TEXT,                   -- 症状快捷标签（发烧/呕吐/咳嗽/湿疹…，选填）
+  note         TEXT,
+  occurred_at  TEXT NOT NULL,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_babies_user    ON babies(user_id);
 CREATE INDEX IF NOT EXISTS idx_feedings_baby  ON feedings(baby_id);
 CREATE INDEX IF NOT EXISTS idx_sleeps_baby    ON sleeps(baby_id);
 CREATE INDEX IF NOT EXISTS idx_plays_baby     ON plays(baby_id);
 CREATE INDEX IF NOT EXISTS idx_diapers_baby   ON diapers(baby_id);
 CREATE INDEX IF NOT EXISTS idx_cares_baby     ON cares(baby_id);
+CREATE INDEX IF NOT EXISTS idx_symptoms_baby  ON symptoms(baby_id);
 `
 
 db.exec(schema)

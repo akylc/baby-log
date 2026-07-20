@@ -281,6 +281,29 @@
             <!-- 护理类（洗澡/理发/剪指甲）：仅需时间与备注，无额外字段 -->
           </template>
 
+          <template v-else-if="editKind === 'symptom'">
+            <div class="ef">
+              <label>症状名称（选填）</label>
+              <n-input
+                v-model:value="eSymptomTag"
+                placeholder="如：发烧、咳嗽，也可手动输入"
+                clearable
+              />
+            </div>
+            <div class="ef">
+              <label>快捷标签</label>
+              <div class="seg seg-wrap">
+                <button
+                  v-for="t in symptomPresets"
+                  :key="t"
+                  :class="['seg-btn', { active: eSymptomTag === t }]"
+                  type="button"
+                  @click="eSymptomTag = eSymptomTag === t ? '' : t"
+                >{{ t }}</button>
+              </div>
+            </div>
+          </template>
+
           <div class="ef" v-if="editKind !== 'sleep' && editKind !== 'play'">
             <label>时间</label>
             <n-date-picker v-model:value="eTs" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
@@ -367,6 +390,7 @@ import { listSleeps, updateSleep, deleteSleep, type Sleep } from '@/api/sleeps'
 import { listPlays, updatePlay, deletePlay, type Play } from '@/api/plays'
 import { listDiapers, updateDiaper, deleteDiaper, type Diaper } from '@/api/diapers'
 import { listCares, updateCare, deleteCare, type Care } from '@/api/cares'
+import { listSymptoms, updateSymptom, deleteSymptom, type Symptom } from '@/api/symptoms'
 import { formatClock, tsToIso, isoToTs } from '@/utils/time'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
 import { useRevealRefresh } from '@/utils/reveal'
@@ -536,7 +560,10 @@ const prevPlays = ref<Play[]>([])
 const cares = ref<Care[]>([])
 const allCares = ref<Care[]>([])
 const prevCares = ref<Care[]>([])
-const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: { text: string; kind: 'now' | 'last' }[]; kind: 'feeding' | 'sleep' | 'play' | 'diaper' | 'care'; type: string; id: number; raw: any; anchorTs: number; gapStartTs: number }[]>([])
+const symptoms = ref<Symptom[]>([])
+const allSymptoms = ref<Symptom[]>([])
+const prevSymptoms = ref<Symptom[]>([])
+const timeline = ref<{ time: string; sortKey: string; icon: string; title: string; sub?: string; gaps: { text: string; kind: 'now' | 'last' }[]; kind: 'feeding' | 'sleep' | 'play' | 'diaper' | 'care' | 'symptom'; type: string; id: number; raw: any; anchorTs: number; gapStartTs: number }[]>([])
 
 // 按当前类型筛选重建展示数据（feedings/sleeps/diapers 与「距上次」下界均受筛选影响），
 // 切换筛选时调用，无需重新请求后端。
@@ -549,6 +576,7 @@ function rebuild() {
   cares.value = set.has('bath') || set.has('haircut') || set.has('nails')
     ? allCares.value.filter((r) => set.has(r.care_type))
     : []
+  symptoms.value = set.has('symptom') ? allSymptoms.value : []
   const prevDayLastByType: Record<string, number> = {}
   const bump = (key: string, ms: number) => {
     if (prevDayLastByType[key] == null || ms > prevDayLastByType[key]) prevDayLastByType[key] = ms
@@ -557,6 +585,7 @@ function rebuild() {
   if (set.has('play')) prevPlays.value.forEach((r) => bump('play', playAnchor(r)))
   if (set.has('diaper')) prevDiapers.value.forEach((r) => bump('diaper', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
   if (set.has('bath') || set.has('haircut') || set.has('nails')) prevCares.value.forEach((r) => bump(r.care_type, new Date(r.occurred_at.replace(' ', 'T')).getTime()))
+  if (set.has('symptom')) prevSymptoms.value.forEach((r) => bump('symptom', new Date(r.occurred_at.replace(' ', 'T')).getTime()))
   prevFeedings.value.forEach((r) => {
     if (set.has(r.type)) bump(r.type, new Date(r.occurred_at.replace(' ', 'T')).getTime())
   })
@@ -585,18 +614,20 @@ async function refresh() {
     const fromDate = shiftDateStr(selectedDate.value, -6)
     const prevDate = shiftDateStr(fromDate, -1) // 前一天（用于最早项跨天「距上次」）
     const bid = currentBaby.value?.id
-    const [s, f, sl, d, pl, cc, pf, ps, pd, ppl, pcc] = await Promise.all([
+    const [s, f, sl, d, pl, cc, csy, pf, ps, pd, ppl, pcc, pcsy] = await Promise.all([
       getStats(selectedDate.value, bid),
       listFeedings({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listSleeps({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listDiapers({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listPlays({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listCares({ from: fromDate, to: selectedDate.value, babyId: bid }),
+      listSymptoms({ from: fromDate, to: selectedDate.value, babyId: bid }),
       listFeedings({ date: prevDate, babyId: bid }),
       listSleeps({ date: prevDate, babyId: bid }),
       listDiapers({ date: prevDate, babyId: bid }),
       listPlays({ date: prevDate, babyId: bid }),
       listCares({ date: prevDate, babyId: bid }),
+      listSymptoms({ date: prevDate, babyId: bid }),
     ])
     stats.value = s
     allFeedings.value = f
@@ -609,6 +640,8 @@ async function refresh() {
     prevPlays.value = ppl
     allCares.value = cc
     prevCares.value = pcc
+    allSymptoms.value = csy
+    prevSymptoms.value = pcsy
     rebuild()
   } catch (e: any) {
     message.error(e?.message || '加载失败')
@@ -709,6 +742,9 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
     const cm = careMeta[c.care_type] || { icon: '🧴', label: '护理' }
     items.push({ time: formatClock(c.occurred_at), sortKey: c.occurred_at, icon: cm.icon, title: cm.label, sub: c.note || undefined, kind: 'care', type: c.care_type, id: c.id, raw: c, anchorTs: new Date(c.occurred_at.replace(' ', 'T')).getTime(), gapStartTs: new Date(c.occurred_at.replace(' ', 'T')).getTime() })
   })
+  symptoms.value.forEach((sy) => {
+    items.push({ time: formatClock(sy.occurred_at), sortKey: sy.occurred_at, icon: '🤒', title: sy.symptom_tag || '症状', sub: sy.note || undefined, kind: 'symptom', type: 'symptom', id: sy.id, raw: sy, anchorTs: new Date(sy.occurred_at.replace(' ', 'T')).getTime(), gapStartTs: new Date(sy.occurred_at.replace(' ', 'T')).getTime() })
+  })
   items.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
   const now = Date.now()
   // 「距上次」改为「对应类型」的距上次：仅与同类型、时间上更早的记录比较
@@ -724,6 +760,7 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
     bath: '洗澡',
     haircut: '理发',
     nails: '剪指甲',
+    symptom: '症状',
   }
   const byType: Record<string, typeof items> = {}
   for (const it of items) (byType[it.type] ||= []).push(it)
@@ -917,7 +954,7 @@ const diaperOpts = [
   { value: 'both', label: '尿+便' },
 ]
 const editShow = ref(false)
-const editKind = ref<'feeding' | 'sleep' | 'play' | 'diaper' | 'care'>('feeding')
+const editKind = ref<'feeding' | 'sleep' | 'play' | 'diaper' | 'care' | 'symptom'>('feeding')
 const editId = ref(0)
 const editType = ref<string>('')
 const eLeft = ref<number | null>(null)
@@ -931,6 +968,9 @@ const ePlayType = ref('')
 const ePlayStart = ref<number | null>(null)
 const ePlayEnd = ref<number | null>(null)
 const eDiaper = ref<'pee' | 'poo' | 'both'>('pee')
+// 症状快捷标签（选填；常用：发烧/呕吐/咳嗽/湿疹）
+const symptomPresets = ['发烧', '呕吐', '咳嗽', '湿疹']
+const eSymptomTag = ref<string>('')
 const eNote = ref('')
 const eTs = ref(Date.now())
 const editLoading = ref(false)
@@ -996,6 +1036,8 @@ function openEdit(it: any) {
     ePlayEnd.value = r.play_end ? isoToTs(r.play_end) : Date.now()
   } else if (it.kind === 'diaper') {
     eDiaper.value = r.type
+  } else if (it.kind === 'symptom') {
+    eSymptomTag.value = r.symptom_tag || ''
   }
   // care（洗澡/理发/剪指甲）：仅时间与备注，无额外字段，下方通用「时间/备注」即可编辑
   eNote.value = r.note || ''
@@ -1061,6 +1103,12 @@ async function saveEdit() {
         note: eNote.value || null,
         occurred_at: tsToIso(eTs.value),
       })
+    } else if (editKind.value === 'symptom') {
+      await updateSymptom(editId.value, {
+        symptom_tag: eSymptomTag.value || null,
+        note: eNote.value || null,
+        occurred_at: tsToIso(eTs.value),
+      })
     } else {
       // care 分支：洗澡/理发/剪指甲，仅时间与备注
       await updateCare(editId.value, {
@@ -1092,6 +1140,7 @@ function deleteCurrent() {
         else if (editKind.value === 'sleep') await deleteSleep(editId.value)
         else if (editKind.value === 'play') await deletePlay(editId.value)
         else if (editKind.value === 'diaper') await deleteDiaper(editId.value)
+        else if (editKind.value === 'symptom') await deleteSymptom(editId.value)
         else await deleteCare(editId.value)
         message.success('已删除')
         editShow.value = false
@@ -1680,6 +1729,13 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
 .seg {
   display: flex;
   gap: 8px;
+}
+.seg.seg-wrap {
+  flex-wrap: wrap;
+}
+.seg.seg-wrap .seg-btn {
+  flex: 0 0 auto;
+  min-width: 72px;
 }
 .seg-btn {
   flex: 1;

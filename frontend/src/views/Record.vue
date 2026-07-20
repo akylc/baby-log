@@ -257,6 +257,29 @@
         </div>
       </template>
 
+      <template v-else-if="type === 'symptom'">
+        <div class="field">
+          <label>症状名称（选填）</label>
+          <n-input
+            v-model:value="symptomTag"
+            placeholder="如：发烧、咳嗽，也可手动输入"
+            clearable
+          />
+        </div>
+        <div class="field">
+          <label>快捷标签</label>
+          <div class="seg seg-wrap">
+            <button
+              v-for="t in symptomPresets"
+              :key="t"
+              :class="['seg-btn', { active: symptomTag === t }]"
+              type="button"
+              @click="symptomTag = symptomTag === t ? '' : t"
+            >{{ t }}</button>
+          </div>
+        </div>
+      </template>
+
       <div class="field" v-if="type !== 'sleep' && type !== 'play'">
         <label>时间</label>
         <n-date-picker v-model:value="occurredTs" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
@@ -291,6 +314,7 @@ import { createSleep } from '@/api/sleeps'
 import { createPlay } from '@/api/plays'
 import { createDiaper } from '@/api/diapers'
 import { createCare } from '@/api/cares'
+import { createSymptom } from '@/api/symptoms'
 import { getHistory, pushHistory, removeHistory } from '@/utils/history'
 import { tsToIso } from '@/utils/time'
 import PieTypeMenu from '@/components/PieTypeMenu.vue'
@@ -325,7 +349,7 @@ const playPresets = ['爬爬垫', '散步', '户外娱乐', '早教', '唱歌', 
 function loadLastType(): RecType {
   try {
     const v = localStorage.getItem('ml_last_type')
-    if (v === 'breast' || v === 'formula' || v === 'bottle' || v === 'food' || v === 'supplement' || v === 'sleep' || v === 'play' || v === 'diaper' || v === 'bath' || v === 'haircut' || v === 'nails') return v
+    if (v === 'breast' || v === 'formula' || v === 'bottle' || v === 'food' || v === 'supplement' || v === 'sleep' || v === 'play' || v === 'diaper' || v === 'bath' || v === 'haircut' || v === 'nails' || v === 'symptom') return v
   } catch {
     /* 忽略存储异常 */
   }
@@ -476,6 +500,9 @@ onBeforeUnmount(() => {
 const diaperType = ref<'pee' | 'poo' | 'both'>('pee')
 // 洗澡时是否同时落一条换尿布记录
 const withDiaper = ref(false)
+// 症状快捷标签（选填；常用：发烧/呕吐/咳嗽/湿疹）
+const symptomPresets = ['发烧', '呕吐', '咳嗽', '湿疹']
+const symptomTag = ref<string>('')
 const leftDuration = ref<number | null>(null)
 const rightDuration = ref<number | null>(null)
 const sleepStart = ref<number>(Date.now())
@@ -710,6 +737,9 @@ async function submit() {
       if (type.value === 'bath' && withDiaper.value) {
         await createDiaper({ babyId: currentBaby.value!.id, type: diaperType.value, note: note.value || null, occurred_at: occurredAt.value })
       }
+    } else if (type.value === 'symptom') {
+      // 症状记录：时间 + 可选快捷标签 + 备注
+      await createSymptom({ babyId: currentBaby.value!.id, symptom_tag: symptomTag.value || null, note: note.value || null, occurred_at: occurredAt.value })
     }
     message.success('已记录 🎉')
     router.replace('/')
@@ -931,6 +961,13 @@ async function submit() {
 .seg {
   display: flex;
   gap: 8px;
+}
+.seg.seg-wrap {
+  flex-wrap: wrap;
+}
+.seg.seg-wrap .seg-btn {
+  flex: 0 0 auto;
+  min-width: 72px;
 }
 /* 洗澡「同时添加换尿布记录」整行卡片：加高点击区域、与上方类型栏拉开间距防误触 */
 .with-diaper {
