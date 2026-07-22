@@ -43,6 +43,35 @@ body,
 .n-date-panel--datetime .n-time-picker-col:nth-child(3) {
   display: none !important;
 }
+/* 放大日期/时间面板底部的「此刻」「确认」按钮：原始为 tiny 尺寸，移动端点击命中区太小。
+   桌面端做适度放大（便于预览验证）；触摸设备进一步放大到 ~46px 合规命中高度并做成并排大按钮。 */
+.n-date-panel-actions__suffix .n-button {
+  min-height: 36px;
+  padding: 6px 16px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+@media (hover: none) and (pointer: coarse) {
+  .n-date-panel-actions__suffix .n-button {
+    min-height: 46px;
+    padding: 12px 22px;
+    font-size: 16px;
+    border-radius: 12px;
+    flex: 1 1 0;
+    font-weight: 600;
+  }
+  .n-date-panel-actions__suffix .n-button + .n-button {
+    margin-left: 10px;
+  }
+  /* 「确认」(primary) 在移动端做成实心大按钮，更醒目、易点 */
+  .n-date-panel-actions__suffix .n-button--type-primary {
+    background-color: var(--primary);
+    color: #fff;
+  }
+  .n-date-panel-actions__suffix .n-button--type-primary:hover {
+    background-color: var(--primary-deep);
+  }
+}
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
   background: var(--login-bot);
