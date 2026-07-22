@@ -229,11 +229,11 @@
           <template v-else-if="editKind === 'sleep'">
             <div class="ef">
               <label>入睡时间<span class="req">*</span></label>
-              <n-date-picker v-model:value="eSleepStart" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
+              <n-date-picker v-model:value="eSleepStart" type="datetime" format="yyyy-MM-dd HH:mm" :time-picker-format="'HH:mm'" style="width: 100%" input-readonly />
             </div>
             <div class="ef">
               <label>醒来时间（选填）</label>
-              <n-date-picker v-model:value="eSleepEnd" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
+              <n-date-picker v-model:value="eSleepEnd" type="datetime" format="yyyy-MM-dd HH:mm" :time-picker-format="'HH:mm'" style="width: 100%" input-readonly />
             </div>
             <div class="ef" v-if="eSleepStart && eSleepEnd && editSleepMin > 0">
               <label>睡眠时长（自动计算）</label>
@@ -248,11 +248,11 @@
             </div>
             <div class="ef">
               <label>开始时间（选填）</label>
-              <n-date-picker v-model:value="ePlayStart" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
+              <n-date-picker v-model:value="ePlayStart" type="datetime" format="yyyy-MM-dd HH:mm" :time-picker-format="'HH:mm'" style="width: 100%" input-readonly />
             </div>
             <div class="ef">
               <label>结束时间（选填）</label>
-              <n-date-picker v-model:value="ePlayEnd" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
+              <n-date-picker v-model:value="ePlayEnd" type="datetime" format="yyyy-MM-dd HH:mm" :time-picker-format="'HH:mm'" style="width: 100%" input-readonly />
             </div>
             <div class="ef" v-if="ePlayStart && ePlayEnd && editPlayMin > 0">
               <label>娱乐时长（自动计算）</label>
@@ -337,7 +337,7 @@
 
           <div class="ef" v-if="editKind !== 'sleep' && editKind !== 'play'">
             <label>时间</label>
-            <n-date-picker v-model:value="eTs" type="datetime" format="yyyy-MM-dd HH:mm" style="width: 100%" input-readonly />
+            <n-date-picker v-model:value="eTs" type="datetime" format="yyyy-MM-dd HH:mm" :time-picker-format="'HH:mm'" style="width: 100%" input-readonly />
           </div>
           <div class="ef">
             <label>备注（可选）</label>

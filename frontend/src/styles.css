@@ -25,6 +25,24 @@ body,
      页面内的滚动由 .page-area（overflow-y:auto）内部承载 */
   overflow: hidden;
 }
+/* 触摸设备（手机/平板）：Naive UI 日期面板内部还有一个可编辑输入框（面板顶部的 日期/时分 栏），
+   它不受 trigger 的 input-readonly 控制，点它会出现光标并弹出软键盘。
+   触摸端直接禁用其指针事件，使其无法聚焦；用户改用日历网格 + 时间滚动列选择。
+   桌面端（hover 设备）不受影响，仍可手输。 */
+@media (hover: none) and (pointer: coarse) {
+  .n-date-panel input,
+  .n-date-picker-panel input {
+    pointer-events: none !important;
+    caret-color: transparent !important;
+  }
+}
+/* 双保险：隐藏 datetime 日期面板里的时间「秒」选择列。
+   主方案是在各 datetime n-date-picker 上加 :time-picker-format="'HH:mm'"
+   （让 NTimePicker 的 format 不含 ss，秒列不渲染、输入框也不显示秒）；
+   此 CSS 作为兜底，即使某些环境未生效也能让秒列不可选。 */
+.n-date-panel--datetime .n-time-picker-col:nth-child(3) {
+  display: none !important;
+}
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
   background: var(--login-bot);

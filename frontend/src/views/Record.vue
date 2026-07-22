@@ -170,11 +170,11 @@
       <template v-else-if="type === 'sleep'">
         <div class="field">
           <label>入睡时间<span class="req">*</span></label>
-          <n-date-picker v-model:value="sleepStart" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
+          <n-date-picker v-model:value="sleepStart" type="datetime" format="yyyy-MM-dd HH:mm" :time-picker-format="'HH:mm'" input-readonly />
         </div>
         <div class="field">
           <label>醒来时间（选填）</label>
-          <n-date-picker v-model:value="sleepEnd" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
+          <n-date-picker v-model:value="sleepEnd" type="datetime" format="yyyy-MM-dd HH:mm" :time-picker-format="'HH:mm'" input-readonly />
         </div>
         <div class="field" v-if="sleepStart && sleepEnd && calcSleepMin > 0">
           <label>睡眠时长（自动计算）</label>
@@ -212,11 +212,11 @@
         </div>
         <div class="field">
           <label>开始时间（选填）</label>
-          <n-date-picker v-model:value="playStart" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
+          <n-date-picker v-model:value="playStart" type="datetime" format="yyyy-MM-dd HH:mm" :time-picker-format="'HH:mm'" input-readonly />
         </div>
         <div class="field">
           <label>结束时间（选填）</label>
-          <n-date-picker v-model:value="playEnd" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
+          <n-date-picker v-model:value="playEnd" type="datetime" format="yyyy-MM-dd HH:mm" :time-picker-format="'HH:mm'" input-readonly />
         </div>
         <div class="field" v-if="playStart && playEnd && calcPlayMin > 0">
           <label>娱乐时长（自动计算）</label>
@@ -313,7 +313,7 @@
 
       <div class="field" v-if="type !== 'sleep' && type !== 'play'">
         <label>时间</label>
-        <n-date-picker v-model:value="occurredTs" type="datetime" format="yyyy-MM-dd HH:mm" input-readonly />
+        <n-date-picker v-model:value="occurredTs" type="datetime" format="yyyy-MM-dd HH:mm" :time-picker-format="'HH:mm'" input-readonly />
       </div>
       <div class="field">
         <label>备注（可选）</label>
@@ -325,7 +325,7 @@
         />
       </div>
 
-      <n-button type="primary" block size="large" :loading="loading" @click="submit">保存记录</n-button>
+      <n-button type="primary" block size="large" :loading="loading" @click="submit" @touchend.prevent="onSaveTouch">保存记录</n-button>
     </section>
 
     <!-- 径向扇形类型切换（右下角，独立于上方类型栏） -->
@@ -673,6 +673,16 @@ onMounted(() => {
 })
 // 从后台切回前台时刷新当前页面
 useRevealRefresh(reload)
+
+// iOS 修复：输入框获焦、键盘未收起时，点击保存按钮第一下 tap 只会被 iOS 用来收起键盘（输入框失焦），
+// 不会触发 click；需第二下才真正保存。这里在 touchend 直接收起键盘并保存，使第一次 tap 即可生效。
+// .prevent 抑制随后合成的 click，避免重复提交；非触摸端仍走 @click。
+function onSaveTouch() {
+  if (loading.value) return
+  const el = document.activeElement as HTMLElement | null
+  el?.blur?.()
+  submit()
+}
 
 async function submit() {
   if (!currentBaby.value) {
