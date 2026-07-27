@@ -35,8 +35,10 @@
       type="button"
       tabindex="-1"
     >
-      <span class="pi-ico">{{ it.icon }}</span>
-      <span class="pi-lab">{{ it.label }}</span>
+      <span class="pi-inner">
+        <span class="pi-ico">{{ it.icon }}</span>
+        <span class="pi-lab">{{ it.label }}</span>
+      </span>
     </button>
   </div>
 </template>
@@ -79,10 +81,25 @@ const SECTOR = 90 // 扇形总张角（度）：从正上方张到正左方，�
 const RING0 = 112 // 第一圈半径 px
 const RING_GAP = 96 // 每加一圈半径增量
 const HIT = 40 // 命中半径 px
+const RING_STEP = 35 // 每圈错峰延迟(ms)：展开时内圈先、外圈后；收起不处理动画
 
 function capForRing(ring: number) {
   return RING_CAP[ring] ?? 5
 }
+
+// 返回第 i 个 item 所属圈(ring)索引，与 layout() 的分圈规则(RING_CAP)保持一致
+function ringOf(i: number) {
+  let idx = i
+  let ring = 0
+  while (idx >= capForRing(ring)) {
+    idx -= capForRing(ring)
+    ring++
+  }
+  return ring
+}
+const maxRing = computed(() =>
+  props.items.length === 0 ? 0 : ringOf(props.items.length - 1),
+)
 
 // 扇形布局：朝页面内部（左上）张开的 90° 扇面，从“正上方”到“正左方”
 // 每圈按各自容量在扇面内均匀排布，按钮在右下角时所有展开项都在可视区内
@@ -120,13 +137,23 @@ const currentLabel = computed(() => currentItem.value?.label ?? '类型')
 
 function itemStyle(i: number, value: string) {
   const p = layout.value[i]
-  const scale = open.value ? (hoverIdx.value === i ? 1.18 : 1) : 0
+  // 位置+入场缩放全部合并进 transform（全平台过渡稳定）。
+  // 展开：从入口中心(scale0)扇形散开到各自径向位(scale1)并淡入，内圈先、外圈后(单值 delay)。
+  // 收起：transition:none，瞬间消失（不处理收起动画）。
   const tf = open.value
-    ? `translate(calc(-50% + ${p.x}px), calc(-50% + ${p.y}px)) scale(${scale})`
+    ? `translate(calc(-50% + ${p.x}px), calc(-50% + ${p.y}px)) scale(1)`
     : `translate(-50%, -50%) scale(0)`
+  // 错峰延迟仅作用于展开；收起无过渡故 delay 无效。用「单值」delay 写入 transition，
+  // 避免多值 transition-delay 列表在 iOS Safari 上解析异常导致跳变/卡顿。
+  const ring = ringOf(i)
+  const delay = open.value ? ring * RING_STEP : 0
+  const transition = open.value
+    ? `transform 0.16s cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms, opacity 0.16s ease ${delay}ms`
+    : 'none'
   return {
     transform: tf,
     opacity: open.value ? 1 : 0,
+    transition,
     // 用类型主题色做底色 tint，缺省回退主色
     background: `color-mix(in srgb, var(--t-${value}, var(--primary)) 16%, var(--card))`,
     color: `var(--t-${value}, var(--primary))`,
@@ -244,7 +271,7 @@ defineExpose({ armGuard })
     transparent 82%);
   -webkit-mask-image: radial-gradient(circle closest-side, #000 74%, transparent 100%);
   mask-image: radial-gradient(circle closest-side, #000 74%, transparent 100%);
-  transition: opacity 0.22s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 0.16s ease, transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .pie-scrim.show {
   opacity: 1;
@@ -290,21 +317,36 @@ defineExpose({ armGuard })
   border-radius: 50%;
   border: 2px solid transparent;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   font-size: 22px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s, border-color 0.12s;
+  /* 过渡由 itemStyle 内联控制：展开带延迟、收起 none（瞬间消失） */
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  will-change: transform, opacity;
+}
+/* 承载图标+文字，hover 缩放在此处零延迟跟手，与展开位移(transform)分离 */
+.pi-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  transform: scale(1);
+  transform-origin: center;
+  transition: transform 0.12s ease;
   will-change: transform;
 }
 .pie-item.hover {
   border-color: var(--primary);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 35%, transparent), 0 6px 16px rgba(0, 0, 0, 0.22);
+}
+.pie-item.hover .pi-inner {
+  transform: scale(1.18);
 }
 .pi-lab {
   font-size: 10px;
