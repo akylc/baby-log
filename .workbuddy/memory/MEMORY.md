@@ -16,7 +16,7 @@
 - 主题色：7 类 feeding 子类型 + sleep + play 各有一套 `--t-*` 变量（亮/暗色两版）+ `.tl-{type}`；icon 背景用 `color-mix(in srgb, var(--tt) var(--icon-tint), var(--card))`。
 
 ## 本地预览 / 运行（重要，反复踩）
-- **预览要同时拉起两端**：前端 `pnpm --filter frontend dev`（vite，默认 5173，代理 `/api`→`26712`）+ 后端 `node backend/dist/server.js`（26712）。任一端挂了都打不开：前端 dev server 崩溃/被杀后不会自动重启（曾因 vite 解构编译错误 + 进程被杀，5173/5174 双双挂掉导致"预览没跑起来"）。
+- **起预览首选根 `pnpm dev` 一条命令**：`concurrently` 同时起前端 vite@5173（代理 `/api`→`26712`）与后端，且 `predev` 钩子（`scripts/stop-if-running.mjs`）**自动杀占端口的旧进程**——无需手动分终端、无需手动杀 26712（用户 2026-07-26 实测 `pnpm dev` 一条命令即成功）。任一端挂了都打不开：前端 dev server 崩溃/被杀后不会自动重启（曾因 vite 解构编译错误 + 进程被杀，5173/5174 双双挂掉导致"预览没跑起来"）。
 - **后端是手动长进程，非守护**：`node dist/server.js` 由会话手动起、常驻；它跑的是**构建时**的 dist，不会自动热更。代码改动（尤其新增后端路由如 plays）后必须**先 `pnpm build` 再重启后端**，否则后端仍是旧版本（曾出现后端停在 v0.0.10、dist 无 plays 路由的坑）。
 - ⚠️ **杀旧后端进程**：本机常残留早期会话起的后端（占 26712、版本很旧）。当前 Bash 沙箱的 `kill` 报 "No such process"（进程不在沙箱 PID 命名空间），普通 `kill` 杀不掉；须用 **PowerShell 工具** `Stop-Process -Id <PID> -Force` 才能终止（bash 里调用 powershell 会被安全策略拦截，务必走 PowerShell 工具）。杀掉后 26712 才释放、新后端才能绑定。
 - **vite 探活写法**：本机有 HTTP 代理，curl 探本地必须 `--noproxy '*'`；且 `-o /dev/null` 配合 `-w` 偶尔报 `curl: (23) ... write of N bytes`（无害，http=200 即正常）。
