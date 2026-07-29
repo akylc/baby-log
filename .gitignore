@@ -10,3 +10,7 @@ backend/build/
 tsup.config.bundled*.mjs
 # vite 加载 config 时生成的临时转译产物
 frontend/vite.config.ts.timestamp-*.mjs
+
+# 项目工作日志不入库，仅保留长期记忆 MEMORY.md
+.workbuddy/memory/*.md
+!/.workbuddy/memory/MEMORY.md
