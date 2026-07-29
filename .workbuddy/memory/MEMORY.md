@@ -40,4 +40,4 @@
 - 构建必须走 `pnpm docker:build`；裸 `docker build` 不带参数能成但绕过了版本读取脚本，禁止用于发版。
 - 部署：`docker load -i <tar>` 后 `docker run -d -p 26712:26712 -v <宿主机data>:/app/data baby-log:v<版本>`（`/app/data` 是 sqlite 库，必须挂卷持久化）。健康检查端点 = **`/api/health`**（返回 `{status,version,time}`），绝非 `/health`（后者被 SPA 回退成 index.html 壳）。
 - **GitHub 同步（2026-07-15 起）**：已添加 `github` remote（`git@github.com:akylc/baby-log.git`，私有仓库，含 `.workbuddy/memory`）。发版 ④ 改为双推 `origin` + `github`；首次全量推送已完成（仅 main，旧 tag v0.0.1 已删除）。日常也可 `git push github` 手动同步。
-- 注：日常代码改动仍遵守「git 提交习惯」——需用户显式指令才提交；唯有"发版"流程自带提交推送这最后一步。**例外（记忆文件）**：项目记忆文件（`.workbuddy/memory/**`，含每日日记与 MEMORY.md）视为应主动提交物，不按"待指令才提交"处理——平时完成实质性工作后即主动 commit 记忆文件，发版时一并并入 ④ 的 `git add` 范围，避免日记长期遗留未提交。
+- 注：日常代码改动仍遵守「git 提交习惯」——需用户显式指令才提交；唯有"发版"流程自带提交推送这最后一步。**例外（记忆文件）**：仅项目长期记忆 `.workbuddy/memory/MEMORY.md` 视为应主动提交物，不按"待指令才提交"处理；每日工作日志（`YYYY-MM-DD.md`）已由根 `.gitignore` 排除、**不入库**（本地仍保留，用于临时记录）。发版时 `git add` 范围含 `MEMORY.md` 即可，勿将日记纳入版本库。
