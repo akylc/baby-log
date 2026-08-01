@@ -77,7 +77,16 @@
       <template v-else-if="type === 'formula'">
         <div class="field">
           <label>奶量（ml）<span class="req">*</span></label>
-          <n-input-number v-model:value="amount" :min="0" :max="500" placeholder="如 120" />
+          <div class="stepper">
+            <button type="button" class="step-btn" @click.prevent="stepAmount(-10)">−</button>
+            <input
+              class="step-input"
+              v-model.number="amount"
+              inputmode="numeric"
+              :placeholder="'如 120'"
+            />
+            <button type="button" class="step-btn" @click.prevent="stepAmount(10)">+</button>
+          </div>
           <div class="hist" v-if="hist.milk_amount.length">
             <span class="hist-cap">最近（长按删除）</span>
             <span
@@ -98,7 +107,16 @@
       <template v-else-if="type === 'bottle'">
         <div class="field">
           <label>奶量（ml）<span class="req">*</span></label>
-          <n-input-number v-model:value="amount" :min="0" :max="500" placeholder="如 120" />
+          <div class="stepper">
+            <button type="button" class="step-btn" @click.prevent="stepAmount(-10)">−</button>
+            <input
+              class="step-input"
+              v-model.number="amount"
+              inputmode="numeric"
+              :placeholder="'如 120'"
+            />
+            <button type="button" class="step-btn" @click.prevent="stepAmount(10)">+</button>
+          </div>
           <div class="hist" v-if="hist.milk_amount.length">
             <span class="hist-cap">最近（长按删除）</span>
             <span
@@ -653,6 +671,15 @@ function fillVal(key: string, val: string) {
   else if (key === 'play_type') playType.value = val
 }
 
+// 奶量加减（步进 10，范围 0~500）；独立按钮点击不聚焦输入框，避免手机弹键盘
+function stepAmount(delta: number) {
+  const base = amount.value ?? 0
+  let next = base + delta
+  if (next < 0) next = 0
+  if (next > 500) next = 500
+  amount.value = next
+}
+
 async function reload() {
   // 切回前台：把记录时间重置为「此刻」（用户此刻才记录，避免停留在切后台前的时间）
   occurredTs.value = Date.now()
@@ -1010,6 +1037,53 @@ async function submit() {
 }
 .tag:active {
   background: var(--card-pink);
+}
+/* 奶量加减 stepper：独立按钮点击不聚焦输入框（@click.prevent），手机不弹键盘 */
+.stepper {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.step-btn {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 48px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  transition: transform 0.08s, background 0.15s;
+}
+.step-btn:active {
+  transform: scale(0.94);
+  background: var(--primary-press, var(--primary));
+}
+.step-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 48px;
+  border: 1px solid var(--tag-border);
+  border-radius: 12px;
+  background: var(--bg-input, var(--card));
+  color: var(--text);
+  font-size: 18px;
+  text-align: center;
+  padding: 0 8px;
+  outline: none;
+}
+.step-input:focus {
+  border-color: var(--primary);
 }
 .seg {
   display: flex;
