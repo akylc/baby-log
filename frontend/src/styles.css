@@ -43,19 +43,56 @@ body,
 .n-date-panel--datetime .n-time-picker-col:nth-child(3) {
   display: none !important;
 }
+/* 放大 datetime 日期面板里的「时间」滚动选择列（时/分）：
+   默认 item-height 36px、item-width 52px、font-size 12px，移动端点选/滚动费劲。
+   注意 datetime 模式的时间列由内嵌的 NTimePicker 渲染，用的是 TimePicker 主题变量，
+   因此在 .n-date-panel--datetime .n-time-picker 作用域内覆盖 --n-item-* 变量即可整体放大。 */
+.n-date-panel--datetime .n-time-picker {
+  --n-item-height: 52px;
+  --n-item-width: 64px;
+  --n-item-font-size: 18px;
+  --n-item-border-radius: 10px;
+}
+@media (hover: none) and (pointer: coarse) {
+  .n-date-panel--datetime .n-time-picker {
+    --n-item-height: 56px;
+    --n-item-width: 70px;
+    --n-item-font-size: 20px;
+  }
+}
+/* 放大 datetime 日期面板的「日历」网格（日期格 + 星期表头）：
+   默认 item-cell-width 38px、item-cell-height 32px、item-size 24px、字号 14px，移动端偏挤。
+   直接覆盖 .n-date-panel--datetime 的日历主题变量（!important 确保压过 Naive 组件样式注入顺序）。
+   注意：时间滚动列用的是内嵌 NTimePicker 自己的 --n-item-* 变量（已在上方单独放大），互不影响。 */
+.n-date-panel--datetime {
+  --n-item-cell-width: 46px !important;
+  --n-item-cell-height: 42px !important;
+  --n-item-size: 38px !important;
+  --n-item-font-size: 16px !important;
+  --n-calendar-days-height: 36px !important;
+}
+@media (hover: none) and (pointer: coarse) {
+  .n-date-panel--datetime {
+    --n-item-cell-width: 50px !important;
+    --n-item-cell-height: 46px !important;
+    --n-item-size: 42px !important;
+    --n-item-font-size: 18px !important;
+    --n-calendar-days-height: 40px !important;
+  }
+}
 /* 放大日期/时间面板底部的「此刻」「确认」按钮：原始为 tiny 尺寸，移动端点击命中区太小。
    桌面端做适度放大（便于预览验证）；触摸设备进一步放大到 ~46px 合规命中高度并做成并排大按钮。 */
 .n-date-panel-actions__suffix .n-button {
-  min-height: 36px;
-  padding: 6px 16px;
-  font-size: 14px;
-  border-radius: 10px;
+  min-height: 40px;
+  padding: 8px 20px;
+  font-size: 15px;
+  border-radius: 12px;
 }
 @media (hover: none) and (pointer: coarse) {
   .n-date-panel-actions__suffix .n-button {
-    min-height: 46px;
-    padding: 12px 22px;
-    font-size: 16px;
+    min-height: 50px;
+    padding: 14px 24px;
+    font-size: 17px;
     border-radius: 12px;
     flex: 1 1 0;
     font-weight: 600;
