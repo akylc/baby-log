@@ -42,3 +42,12 @@
 - 部署：`docker load -i <tar>` 后 `docker run -d -p 26712:26712 -v <宿主机data>:/app/data baby-log:v<版本>`（`/app/data` 是 sqlite 库，必须挂卷持久化）。健康检查端点 = **`/api/health`**（返回 `{status,version,time}`），绝非 `/health`（后者被 SPA 回退成 index.html 壳）。
 - **GitHub 同步（2026-07-15 起）**：已添加 `github` remote（`git@github.com:akylc/baby-log.git`，私有仓库，含 `.workbuddy/memory`）。发版 ④ 改为双推 `origin` + `github`；此前 `github` 长期落后本地，直到 v0.0.27 发版才随 `origin` 一次性全量同步成功（`f7e9eaf..fa3daf0`），现已与 `origin` 对齐。日常也可 `git push github` 手动同步。
 - 注：日常代码改动仍遵守「git 提交习惯」——需用户显式指令才提交；唯有"发版"流程自带提交推送这最后一步。**例外（记忆文件）**：仅项目长期记忆 `.workbuddy/memory/MEMORY.md` 视为应主动提交物，不按"待指令才提交"处理；每日工作日志（`YYYY-MM-DD.md`）已由根 `.gitignore` 排除、**不入库**（本地仍保留，用于临时记录）。发版时 `git add` 范围含 `MEMORY.md` 即可，勿将日记纳入版本库。
+
+## 首页列表「分组折叠」交互方案（已定稿，待实现，未写码）
+- **触发**：用户要求"开始写代码/改代码/实现"才动手（用户约定：需求讨论阶段一律先出效果图、不动源码）。截至 2026-08-05 已完成多轮效果图定稿。
+- **范围**：所有类型（母乳 breast / 瓶喂母乳 bottle / 配方奶 formula / 睡眠 sleep / 换尿布 diaper=pee+poop 合并 / 娱乐 play / 护理 care / 症状 symptom / 用药 medicine）都按类型收拢成可折叠组；默认全部折叠。
+- **折叠态**：每组只显示**最新一条**（组头卡片，样式=现有 `.tl-item`：白底圆角、左侧类型色 icon 方块、标题/摘要、右侧时间）+ 卡片下方叠**两张淡灰虚假卡片**（露底边，暗示可展开）。**无箭头、无 ×N 计数**。点组头 → 展开。
+- **单条特例**：同类型**仅 1 条**时**不分组**，直接显示现有 `.tl-item` 卡片（无叠层、不折叠，点开即编辑，与现状一致）。
+- **展开态**：原组头卡片变为「收起卡片」——**隐藏右侧时间**，仅含 icon + "类型 · 共 N 条" + 副文"点击收起"；点它 → 收起。其下以纯扁平 `.tl-item` 列出该类型全部记录，每条**带右侧时间**、整卡点击 = 编辑弹窗（与现状一致，**移除独立编辑按钮**）。
+- **冲突消解**：折叠态组头=展开 / 展开态顶部卡=收起 / 展开态各条=编辑，靠"当前折叠还是展开"单一状态区分，单击不再抢手势。
+- **实现落点**：前端 `frontend/src/views/Home.vue` 的 `dayGroups`/`buildTimeline`（现有 `byType` 分桶逻辑可复用）；新增 `expandedTypes` 响应式集合（键 `date|type`）+ `toggle(date,type)`；补 scoped 样式（组头、双叠层假卡 `::before/::after` 或额外 div、`pointer-events:none`）。后端无需改动。
