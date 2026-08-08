@@ -94,22 +94,87 @@
       </div>
       <template v-else>
         <div v-if="timeline.length === 0" class="no-data">{{ isFilterActive ? '当前筛选条件下没有记录' : '还没有记录，点右下角「＋」开始吧 👉' }}</div>
-        <template v-for="grp in dayGroups" :key="grp.date">
-          <div class="day-head">
-            <span class="day-d">{{ grp.label }}</span>
-            <span class="day-sum" v-if="grp.summary">{{ grp.summary }}</span>
-          </div>
-          <div v-for="(it, i) in grp.items" :key="grp.date + '-' + i" class="tl-item" :class="'tl-' + it.type" @click="openEdit(it)">
-            <div class="tl-icon">{{ it.icon }}</div>
-            <div class="tl-body">
-              <div class="tl-title">{{ it.title }}</div>
-              <div class="tl-sub" v-if="it.sub">{{ it.sub }}</div>
-              <div class="tl-gaps" v-if="it.gaps && it.gaps.length">
-                <span class="tl-gap" :class="{ 'tl-gap-now': g.kind === 'now' }" v-for="(g, gi) in it.gaps" :key="gi">{{ g.text }}</span>
-              </div>
+        <!-- 扁平（不分组）视图：沿用原有按日时间线平铺 -->
+        <template v-if="!groupedView">
+          <template v-for="grp in dayGroups" :key="grp.date">
+            <div class="day-head">
+              <span class="day-d">{{ grp.label }}</span>
+              <span class="day-sum" v-if="grp.summary">{{ grp.summary }}</span>
             </div>
-            <div class="tl-time">{{ it.time }}</div>
-          </div>
+            <div v-for="(it, i) in grp.items" :key="grp.date + '-' + i" class="tl-item" :class="'tl-' + it.type" @click="openEdit(it)">
+              <div class="tl-icon">{{ it.icon }}</div>
+              <div class="tl-body">
+                <div class="tl-title">{{ it.title }}</div>
+                <div class="tl-sub" v-if="it.sub">{{ it.sub }}</div>
+                <div class="tl-gaps" v-if="it.gaps && it.gaps.length">
+                  <span class="tl-gap" :class="{ 'tl-gap-now': g.kind === 'now' }" v-for="(g, gi) in it.gaps" :key="gi">{{ g.text }}</span>
+                </div>
+              </div>
+              <div class="tl-time">{{ it.time }}</div>
+            </div>
+          </template>
+        </template>
+        <!-- 分组（按类型折叠）视图：同一类型 ≥2 条折叠成组，单条直接平铺 -->
+        <template v-else>
+          <template v-for="grp in groupedDays" :key="grp.date">
+            <div class="day-head">
+              <span class="day-d">{{ grp.label }}</span>
+              <span class="day-sum" v-if="grp.summary">{{ grp.summary }}</span>
+            </div>
+            <template v-for="tg in grp.typeGroups" :key="tg.key">
+              <!-- 单条记录：平铺卡片，点击编辑 -->
+              <div v-if="tg.items.length === 1" class="tl-item" :class="'tl-' + tg.items[0].type" @click="openEdit(tg.items[0])">
+                <div class="tl-icon">{{ tg.items[0].icon }}</div>
+                <div class="tl-body">
+                  <div class="tl-title">{{ tg.items[0].title }}</div>
+                  <div class="tl-sub" v-if="tg.items[0].sub">{{ tg.items[0].sub }}</div>
+                  <div class="tl-gaps" v-if="tg.items[0].gaps && tg.items[0].gaps.length">
+                    <span class="tl-gap" :class="{ 'tl-gap-now': g.kind === 'now' }" v-for="(g, gi) in tg.items[0].gaps" :key="gi">{{ g.text }}</span>
+                  </div>
+                </div>
+                <div class="tl-time">{{ tg.items[0].time }}</div>
+              </div>
+              <!-- 多条同类型：可折叠分组 -->
+              <div v-else class="type-group">
+                <!-- 折叠态：组头卡（下方露双叠层假卡表示多条），点击展开；右侧显示最新一条时间 -->
+                <template v-if="!isExpanded(grp.date, tg.key)">
+                  <div class="tg-stack s1"></div>
+                  <div class="tg-stack s2"></div>
+                  <div class="tl-head tl-item" :class="'tl-' + tg.key" @click="toggleGroup(grp.date, tg.key)">
+                    <div class="tl-icon">{{ tg.items[0].icon }}</div>
+                    <div class="tl-body">
+                      <div class="tl-title">{{ tg.items[0].title }}</div>
+                      <div class="tl-sub" v-if="tg.items[0].sub">{{ tg.items[0].sub }}</div>
+                      <div class="tl-gaps" v-if="tg.items[0].gaps && tg.items[0].gaps.length">
+                        <span class="tl-gap" :class="{ 'tl-gap-now': g.kind === 'now' }" v-for="(g, gi) in tg.items[0].gaps" :key="gi">{{ g.text }}</span>
+                      </div>
+                    </div>
+                    <div class="tl-time">{{ tg.items[0].time }}</div>
+                  </div>
+                </template>
+                <!-- 展开态：顶部「收起卡」（无时间），其下各条点击编辑 -->
+                <template v-else>
+                  <div class="tl-collapse tl-item" :class="'tl-' + tg.key" @click="toggleGroup(grp.date, tg.key)">
+                    <div class="tl-icon">{{ tg.items[0].icon }}</div>
+                    <div class="tl-body">
+                      <div class="tl-title">{{ tg.label }} · {{ tg.items.length }} 条</div>
+                    </div>
+                  </div>
+                  <div v-for="(it, i) in tg.items" :key="grp.date + '-' + tg.key + '-' + i" class="tl-item" :class="'tl-' + it.type" @click="openEdit(it)">
+                    <div class="tl-icon">{{ it.icon }}</div>
+                    <div class="tl-body">
+                      <div class="tl-title">{{ it.title }}</div>
+                      <div class="tl-sub" v-if="it.sub">{{ it.sub }}</div>
+                      <div class="tl-gaps" v-if="it.gaps && it.gaps.length">
+                        <span class="tl-gap" :class="{ 'tl-gap-now': g.kind === 'now' }" v-for="(g, gi) in it.gaps" :key="gi">{{ g.text }}</span>
+                      </div>
+                    </div>
+                    <div class="tl-time">{{ it.time }}</div>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </template>
         </template>
       </template>
       <div class="build-info">构建于 {{ buildTime }} · v{{ appVersion }}</div>
@@ -439,6 +504,7 @@ import { listMedicines, updateMedicine, deleteMedicine, type Medicine } from '@/
 import { formatClock, tsToIso, isoToTs } from '@/utils/time'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
 import { useRevealRefresh } from '@/utils/reveal'
+import { useGroupedView } from '@/utils/groupedView'
 import PieTypeMenu from '@/components/PieTypeMenu.vue'
 import { RECORD_TYPE_VALUES, loadTypeOrder, orderedRecordTypes } from '@/constants/recordTypes'
 
@@ -867,6 +933,65 @@ const dayGroups = computed(() => {
   }
   for (const g of groups) g.summary = daySummary(g.date)
   return groups
+})
+
+// ---------- 分组查看（开关来自「我的」页面，默认开） ----------
+const { groupedView } = useGroupedView()
+
+// 已展开的类型组集合，键为 `${date}|${groupKey}`，默认全部折叠
+const expandedGroups = ref<Set<string>>(new Set())
+function groupStateKey(date: string, key: string) {
+  return date + '|' + key
+}
+function isExpanded(date: string, key: string) {
+  return expandedGroups.value.has(groupStateKey(date, key))
+}
+function toggleGroup(date: string, key: string) {
+  const k = groupStateKey(date, key)
+  const next = new Set(expandedGroups.value)
+  if (next.has(k)) next.delete(k)
+  else next.add(k)
+  expandedGroups.value = next
+}
+
+// 分组键：护理（洗澡/理发/剪指甲）合并为一个「护理」组，其余沿用各自 type
+function groupKey(it: { kind: string; type: string }): string {
+  return it.kind === 'care' ? 'care' : it.type
+}
+// 每个类型组在当日列表中的展示顺序（最新一条作为组头）
+const GROUP_ORDER = ['breast', 'bottle', 'formula', 'food', 'supplement', 'sleep', 'play', 'diaper', 'care', 'symptom', 'medicine']
+const GROUP_LABEL: Record<string, string> = {
+  breast: '母乳',
+  bottle: '瓶喂母乳',
+  formula: '配方奶',
+  food: '辅食',
+  supplement: '营养补剂',
+  sleep: '睡眠',
+  play: '娱乐',
+  diaper: '换尿布',
+  care: '护理',
+  symptom: '症状',
+  medicine: '用药',
+}
+// 在「按日分组」之上再按类型分组；timeline 已受类型筛选影响，故分组天然跟随筛选
+const groupedDays = computed(() => {
+  return dayGroups.value.map((g) => {
+    const byKey: Record<string, typeof g.items> = {}
+    for (const it of g.items) {
+      const k = groupKey(it)
+      ;(byKey[k] ||= []).push(it)
+    }
+    const typeGroups = GROUP_ORDER
+      .filter((k) => byKey[k] && byKey[k].length)
+      .map((k) => ({
+        key: k,
+        label: GROUP_LABEL[k] || k,
+        items: byKey[k],
+        latest: byKey[k][0].sortKey,
+      }))
+      .sort((a, b) => b.latest.localeCompare(a.latest) || GROUP_ORDER.indexOf(a.key) - GROUP_ORDER.indexOf(b.key))
+    return { ...g, typeGroups }
+  })
 })
 
 function dayLabel(day: string): string {
@@ -1570,6 +1695,7 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
 .tl-nails { --tt: var(--t-nails); }
 .tl-medicine { --tt: var(--t-medicine); }
 .tl-symptom { --tt: var(--t-symptom); }
+.tl-care { --tt: var(--t-bath); }
 .tl-icon {
   width: 38px;
   height: 38px;
@@ -2101,4 +2227,53 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
 .step-input:focus {
   border-color: var(--primary);
 }
+/* ---------- 分组查看：按类型折叠 ---------- */
+.type-group {
+  position: relative;
+  isolation: isolate;
+  margin-bottom: 16px;
+}
+/* 折叠态组头下方的双叠层假卡：作为 .type-group 的兄弟节点（非 .tl-head 子节点），
+   z-index:0 置于组头之下、仅露底部；居中内缩且越往后越窄，形成「底部多层、递增缩小」的阶梯感。
+   颜色用 color-mix 在卡片色与文字色之间取值，深/浅色模式都能与卡片/页面区分开 */
+.tg-stack {
+  position: absolute;
+  z-index: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--card) 90%, var(--text) 10%);
+  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.tg-stack.s1 {
+  top: 4px;
+  left: 8px;
+  right: 8px;
+  bottom: -6px;
+  z-index: 1;
+}
+.tg-stack.s2 {
+  top: 9px;
+  left: 16px;
+  right: 16px;
+  bottom: -13px;
+  z-index: 0;
+  background: color-mix(in srgb, var(--card) 94%, var(--text) 6%);
+  border: 1px solid color-mix(in srgb, var(--text) 5%, transparent);
+}
+/* 组头（折叠态）置于叠层之上，遮住重叠部分、仅露底部阶梯；层级 head(2) > s1(1) > s2(0)，s2 不再盖住 s1 */
+.tl-head {
+  position: relative;
+  z-index: 2;
+}
+/* 收起卡（展开态）：无右侧时间，点击收起 */
+.tl-collapse {
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+}
+.tl-collapse .tl-title {
+  font-weight: 600;
+}
 </style>
+

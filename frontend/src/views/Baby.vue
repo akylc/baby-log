@@ -81,6 +81,10 @@
         </div>
       </div>
       <div class="setting-row">
+        <span class="s-label">分组查看记录</span>
+        <n-switch :value="groupedView" @update:value="setGroupedView" />
+      </div>
+      <div class="setting-row">
         <span class="s-label">版本</span>
         <span class="s-val">{{ appVersion }}</span>
       </div>
@@ -102,6 +106,7 @@ import { storeToRefs } from 'pinia'
 import { useBabyStore } from '@/stores/baby'
 import { useAuthStore } from '@/stores/auth'
 import { mode, setThemeMode } from '@/utils/theme'
+import { useGroupedView } from '@/utils/groupedView'
 import { disableFutureDate, isBirthdayInFuture } from '@/utils/date'
 
 const router = useRouter()
@@ -112,6 +117,9 @@ const { babies, currentBaby } = storeToRefs(babyStore)
 const auth = useAuthStore()
 // 版本号统一取自构建时注入的环境变量（源头为仓库根 package.json 的 version）
 const appVersion = (import.meta.env as any).VITE_APP_VERSION || '—'
+
+// 分组查看记录开关（默认开），与首页共享同一状态
+const { groupedView, setGroupedView } = useGroupedView()
 
 function goHome() {
   router.replace('/')
