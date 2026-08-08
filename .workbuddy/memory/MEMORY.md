@@ -22,12 +22,13 @@
 ## git 提交习惯
 - 验收 OK 才 `git commit`，信息 `type: 中文描述`；不主动推送除非显式指令。
 - 例外：项目记忆 `MEMORY.md` 主动提交；每日日记 `YYYY-MM-DD.md` 已被 .gitignore 排除不入库。
+- ⚠️ agent 沙箱限制：git 写操作（commit/push/pull 改写本地引用、写 `.git/FETCH_HEAD`/`.git/index`/refs）会被沙箱文件写保护拦截（表现为 Permission denied / 空输出 exit1，曾被误判为 Defender；用户本机无 Defender、git 完全正常）。涉及 git 写操作让用户本机执行；agent 端仅用只读校验（`ls-remote`/`cat-file`/`hash-object`/`merge-base`/`rev-parse`）。
 
 ## 发版 / Docker 打包（固定流程，一气呵成）
 ① 升版本号：根 package.json 抬 patch，frontend/backend 同步改。
 ② `pnpm build`：版本内联前后端 dist（前端 VITE_APP_VERSION / 后端 APP_VERSION）。
 ③ `pnpm docker:build`（scripts/build-docker.mjs）：读根版本以 `baby-log:v<版本>` 构建（node:24-alpine COPY backend/dist），`docker save` 导出 tar（env `DOCKER_TAR_DIR` 覆盖路径）。**导出后自动清除旧版镜像**：删 `baby-log:*` 非当前 tag（被运行容器引用仅 warn 跳过）+ `docker image prune -f`。
-  - ⚠️ 共享盘用正斜杠 UNC `//10.8.0.10/151XXXX0858/应用/Docker/baby-log`（反斜杠会被 shell 折叠致 invalid output path）。docker:build 须 `DOCKER_BUILDKIT=0`：buildx 的 `~/.docker/buildx/.lock` 被 Defender 拦 Access Denied，经典构建器绕过；Docker Desktop 已装，守护未起先启动它再 build。
+  - ⚠️ 共享盘用正斜杠 UNC `//10.8.0.10/151XXXX0858/应用/Docker/baby-log`（反斜杠会被 shell 折叠致 invalid output path）。docker:build 须 `DOCKER_BUILDKIT=0`：buildx 状态锁在 agent 沙箱内 Access Denied（非 Defender，用户本机无 Defender），经典构建器绕过；Docker Desktop 本机已装，守护未起先启动它再 build。
 ④ 提交推送+打 tag：add 全部（三处 package.json+代码+MEMORY.md）→ `git commit`（chore: 版本号升至 vX.Y.Z）→ `git tag v<版本>` → 双推 origin+github 代码与 tag。
 - 版本唯一来源=根 package.json；Docker 镜像无 version LABEL，以 tag 与 `/api/health` 为准。禁裸 `docker build`。
 - 部署：`docker load -i <tar>` → `docker run -d -p 26712:26712 -v <data>:/app/data baby-log:v<版本>`；健康检查 `GET /api/health`。
