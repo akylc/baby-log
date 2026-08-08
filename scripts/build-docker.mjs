@@ -26,3 +26,23 @@ console.log(`[build-docker] 读取版本=${version}  镜像=${image}`)
 execSync(`docker build -t ${image} .`, { cwd: root, stdio: 'inherit' })
 execSync(`docker save -o "${tarPath}" ${image}`, { stdio: 'inherit' })
 console.log(`[build-docker] 完成 -> ${tarPath}`)
+
+// 清除旧版镜像：tar 已导出成功后，删除 baby-log 仓库下非当前版本的所有 tag 镜像 + 悬空层，避免镜像堆积。
+// 被运行容器引用的旧镜像 rmi 会失败，这里仅 warn 不致命（不会误删正在运行的镜像）。
+try {
+  const lines = execSync('docker images --format {{.Repository}}:{{.Tag}}', { encoding: 'utf8' })
+    .split('\n').map((s) => s.trim()).filter(Boolean)
+  const oldTags = lines.filter((t) => t.startsWith('baby-log:') && t !== image)
+  if (oldTags.length) {
+    console.log(`[build-docker] 清除旧版镜像（保留 ${image}）：`)
+    for (const t of oldTags) {
+      console.log(`  - rmi ${t}`)
+      execSync(`docker rmi ${t}`, { stdio: 'inherit' })
+    }
+  } else {
+    console.log(`[build-docker] 无旧版 baby-log 镜像需清理`)
+  }
+  execSync('docker image prune -f', { stdio: 'inherit' })
+} catch (e) {
+  console.warn('[build-docker] 清除旧版镜像失败（可忽略，不影响已导出的 tar）：', e.message)
+}
