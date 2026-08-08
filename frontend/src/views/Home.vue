@@ -99,7 +99,12 @@
           <template v-for="grp in dayGroups" :key="grp.date">
             <div class="day-head">
               <span class="day-d">{{ grp.label }}</span>
-              <span class="day-sum" v-if="grp.summary">{{ grp.summary }}</span>
+              <div class="day-tags">
+                <span class="day-milk" v-if="grp.milkMl">🍼 {{ grp.milkMl }}ml</span>
+                <span class="day-type-tag" v-for="tg in grp.typeTags" :key="tg.key" :class="'tl-' + tg.key">
+                  <i class="dt-dot"></i>{{ tg.label }} {{ tg.count }}
+                </span>
+              </div>
             </div>
             <div v-for="(it, i) in grp.items" :key="grp.date + '-' + i" class="tl-item" :class="'tl-' + it.type" @click="openEdit(it)">
               <div class="tl-icon">{{ it.icon }}</div>
@@ -119,7 +124,12 @@
           <template v-for="grp in groupedDays" :key="grp.date">
             <div class="day-head">
               <span class="day-d">{{ grp.label }}</span>
-              <span class="day-sum" v-if="grp.summary">{{ grp.summary }}</span>
+              <div class="day-tags">
+                <span class="day-milk" v-if="grp.milkMl">🍼 {{ grp.milkMl }}ml</span>
+                <span class="day-type-tag" v-for="tg in grp.typeTags" :key="tg.key" :class="'tl-' + tg.key">
+                  <i class="dt-dot"></i>{{ tg.label }} {{ tg.count }}
+                </span>
+              </div>
             </div>
             <template v-for="tg in grp.typeGroups" :key="tg.key">
               <!-- 单条记录：平铺卡片，点击编辑 -->
@@ -921,17 +931,21 @@ function buildTimeline(prevDayLastByType: Record<string, number>) {
 
 // 按「日」分组（最新一天在前），每组含日期标签与当日小结
 const dayGroups = computed(() => {
-  const groups: { date: string; label: string; summary: string; items: typeof timeline.value }[] = []
+  const groups: { date: string; label: string; summary: string; items: typeof timeline.value; milkMl: number; typeTags: { key: string; label: string; count: number }[] }[] = []
   for (const it of timeline.value) {
     const day = it.sortKey.slice(0, 10)
     let g = groups.find((x) => x.date === day)
     if (!g) {
-      g = { date: day, label: dayLabel(day), summary: '', items: [] }
+      g = { date: day, label: dayLabel(day), summary: '', items: [], milkMl: 0, typeTags: [] }
       groups.push(g)
     }
     g.items.push(it)
   }
-  for (const g of groups) g.summary = daySummary(g.date)
+  for (const g of groups) {
+    g.summary = daySummary(g.date)
+    g.milkMl = dayMilk(g.date)
+    g.typeTags = dayTypeTags(g.items)
+  }
   return groups
 })
 
@@ -1020,6 +1034,23 @@ function daySummary(day: string): string {
   if (sl.length) parts.push(`睡眠${sl.length}次`)
   if (d.length) parts.push(`尿布${d.length}次`)
   return parts.join(' · ')
+}
+
+// 当天奶量（配方奶/瓶喂母乳的 amount_ml 之和），用于日期右侧保留展示
+function dayMilk(day: string): number {
+  return feedings.value
+    .filter((x) => x.occurred_at.slice(0, 10) === day)
+    .filter((x) => x.type === 'formula' || x.type === 'bottle')
+    .reduce((s, x) => s + (x.amount_ml || 0), 0)
+}
+// 当天各类型条数（护理类合并为 care），用于日期右侧标签展示
+function dayTypeTags(items: typeof timeline.value): { key: string; label: string; count: number }[] {
+  const byKey: Record<string, number> = {}
+  for (const it of items) {
+    const k = groupKey(it)
+    byKey[k] = (byKey[k] || 0) + 1
+  }
+  return GROUP_ORDER.filter((k) => byKey[k]).map((k) => ({ key: k, label: GROUP_LABEL[k] || k, count: byKey[k] }))
 }
 
 function fmtGap(min: number): string {
@@ -1635,6 +1666,7 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
+  flex-wrap: wrap;
   margin: 14px 2px 8px;
   padding-top: 4px;
 }
@@ -1646,12 +1678,40 @@ onUnmounted(() => { pageAreaEl.value?.classList.remove('scroll-locked') })
   font-weight: 700;
   color: var(--primary-deep);
 }
-.day-head .day-sum {
+.day-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+.day-milk {
   font-size: 11px;
-  color: var(--text-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--text-2);
+  background: var(--tag-bg);
+  border: 1px solid var(--tag-border);
+  border-radius: 10px;
+  padding: 2px 8px;
   white-space: nowrap;
+}
+.day-type-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-2);
+  background: var(--tag-bg);
+  border: 1px solid var(--tag-border);
+  border-radius: 10px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.dt-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tt, var(--text-3));
+  flex: none;
 }
 .no-data {
   color: var(--text-3);
